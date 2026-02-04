@@ -405,6 +405,7 @@
     "bulkLabel": "Paste the full test text",
     "bulkPlaceholder": "Paste the full test text with answers...",
     "parseBulk": "Parse text",
+    "appendBulk": "Append to current",
     "bulkEmpty": "Please paste text for import",
     "bulkNoAnswers": "Answers block \"ВІДПОВІДІ\" not found",
     "bulkParseFailed": "Could not parse questions",

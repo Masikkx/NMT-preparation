@@ -143,7 +143,7 @@ export default function CreateTestPage() {
     });
   };
 
-  const parseBulkText = () => {
+  const parseBulkText = (mode: 'replace' | 'append' = 'replace') => {
     setBulkError('');
     setBulkWarnings({});
     const text = bulkText.trim();
@@ -336,8 +336,21 @@ export default function CreateTestPage() {
       return;
     }
 
-    setQuestions(parsed);
-    setBulkWarnings(warnings);
+    if (mode === 'append') {
+      const offset = questions.length;
+      const nextWarnings: Record<number, string> = {};
+      Object.keys(warnings).forEach((key) => {
+        const idx = Number(key);
+        if (!Number.isNaN(idx)) {
+          nextWarnings[idx + offset] = warnings[idx];
+        }
+      });
+      setQuestions((prev) => [...prev, ...parsed]);
+      setBulkWarnings((prev) => ({ ...prev, ...nextWarnings }));
+    } else {
+      setQuestions(parsed);
+      setBulkWarnings(warnings);
+    }
   };
 
   const createTest = async () => {
@@ -493,13 +506,22 @@ export default function CreateTestPage() {
               {bulkError && (
                 <p className="text-sm text-red-600 mt-2">{bulkError}</p>
               )}
-              <button
-                type="button"
-                onClick={parseBulkText}
-                className="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
-              >
-                {t('adminCreateTest.parseBulk')}
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => parseBulkText('replace')}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
+                >
+                  {t('adminCreateTest.parseBulk')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => parseBulkText('append')}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg font-semibold"
+                >
+                  {t('adminCreateTest.appendBulk')}
+                </button>
+              </div>
             </div>
           )}
         </div>
