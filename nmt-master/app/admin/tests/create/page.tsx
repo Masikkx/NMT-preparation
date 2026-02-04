@@ -286,7 +286,7 @@ export default function CreateTestPage() {
         if (indices.length !== 3) {
           warnings[listIndex] = t('adminCreateTest.bulkWarnSelectThree');
         }
-        if (optionLines.length !== 7) {
+        if (options.length !== 7) {
           warnings[listIndex] = warnings[listIndex]
             ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnNeedSeven')}`
             : t('adminCreateTest.bulkWarnNeedSeven');
