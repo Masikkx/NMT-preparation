@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ClipboardEvent } from 'react';
+import { useEffect, useState, useRef, type ClipboardEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
@@ -37,6 +37,7 @@ export default function AdminEditTestPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [test, setTest] = useState<TestEdit | null>(null);
+  const testRef = useRef<TestEdit | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<EditQuestion>({
     type: 'single_choice',
     text: '',
@@ -80,6 +81,10 @@ export default function AdminEditTestPage() {
     }
     fetchTest();
   }, [user, testId]);
+
+  useEffect(() => {
+    testRef.current = test;
+  }, [test]);
 
   const fetchTest = async () => {
     setLoading(true);
@@ -136,20 +141,21 @@ export default function AdminEditTestPage() {
   };
 
   const handleSave = async () => {
-    if (!test) return;
+    const target = testRef.current ?? test;
+    if (!target) return;
     setSaving(true);
     setError('');
     try {
-      const res = await fetch(`/api/tests/${test.id}`, {
+      const res = await fetch(`/api/tests/${target.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: test.title,
-          description: test.description,
-          estimatedTime: test.estimatedTime,
-          isPublished: test.isPublished,
-          type: test.type,
-          questions: test.questions,
+          title: target.title,
+          description: target.description,
+          estimatedTime: target.estimatedTime,
+          isPublished: target.isPublished,
+          type: target.type,
+          questions: target.questions,
         }),
       });
       if (!res.ok) {
@@ -176,14 +182,18 @@ export default function AdminEditTestPage() {
     }
     if (editingIndex !== null) {
       const nextQuestions = [...test.questions];
-      nextQuestions[editingIndex] = currentQuestion;
-      setTest({ ...test, questions: nextQuestions });
+      nextQuestions[editingIndex] = { ...currentQuestion };
+      const nextTest = { ...test, questions: nextQuestions };
+      testRef.current = nextTest;
+      setTest(nextTest);
       setEditingIndex(null);
     } else {
-      setTest({
+      const nextTest = {
         ...test,
-        questions: [...test.questions, currentQuestion],
-      });
+        questions: [...test.questions, { ...currentQuestion }],
+      };
+      testRef.current = nextTest;
+      setTest(nextTest);
     }
     setCurrentQuestion({
       type: 'single_choice',
@@ -205,10 +215,12 @@ export default function AdminEditTestPage() {
         correctAnswer: 0,
       });
     }
-    setTest({
+    const nextTest = {
       ...test,
       questions: test.questions.filter((_, i) => i !== index),
-    });
+    };
+    testRef.current = nextTest;
+    setTest(nextTest);
   };
 
   const editQuestion = (index: number) => {
