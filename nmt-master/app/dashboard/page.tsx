@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
 import Link from 'next/link';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Stats {
   totalTests: number;
@@ -83,10 +82,6 @@ export default function DashboardPage() {
     );
   }
 
-  const chartData = results.slice(0, 10).map((r) => ({
-    name: r.attempt.test.subject.name.substring(0, 3),
-    score: r.attempt.test.type === 'topic' ? r.correctAnswers : r.scaledScore,
-  }));
 
   const nmtResults = results.filter((r) => r.attempt?.test?.type === 'past_nmt');
   const subjectOrder = ['ukrainian-language', 'mathematics', 'history-ukraine', 'english-language'];
@@ -208,21 +203,29 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* Chart */}
-          {results.length > 0 && (
+          {/* Recent NMT Performance */}
+          {nmtResults.length > 0 && (
             <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
               <h2 className="text-2xl font-bold mb-6">{t('dashboard.recentPerformance')}</h2>
-              <div className="h-56 sm:h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 200]} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="score" fill="#2563eb" name={t('dashboard.score')} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {latestNmtBySubject.map((entry) => {
+                  const r = entry.result;
+                  const title = r?.attempt?.test?.subject?.name || entry.slug;
+                  const scoreLabel = r
+                    ? r.scaledScore === 0
+                      ? t('results.notPassed')
+                      : `${r.scaledScore}/200`
+                    : '-';
+                  return (
+                    <div key={entry.slug} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900">
+                      <p className="text-xs text-slate-500">{title}</p>
+                      <p className="text-xl font-bold mt-1">{scoreLabel}</p>
+                      <p className="text-xs text-slate-500 mt-2">
+                        {r ? new Date(r.createdAt).toLocaleDateString() : t('dashboard.noNmtResults')}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

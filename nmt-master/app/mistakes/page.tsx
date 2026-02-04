@@ -91,6 +91,22 @@ export default function MistakesPage() {
     router.push(`/test/${testId}?mode=fix`);
   };
 
+  const startFixAllBySubject = () => {
+    if (!subjectFilter) return;
+    const subset = items.filter((m) => m.subject?.slug === subjectFilter);
+    if (subset.length === 0) return;
+    const firstTestId = subset[0].testId;
+    try {
+      const ids = subset.map((m) => m.questionId);
+      localStorage.setItem(`mistakes_${firstTestId}`, JSON.stringify(ids));
+      localStorage.setItem(
+        `mistakes_meta_${firstTestId}`,
+        JSON.stringify(subset.map((m) => ({ id: m.questionId, content: m.questionText || t('results.imageQuestion') })))
+      );
+    } catch {}
+    router.push(`/test/${firstTestId}?mode=fix`);
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 py-12">
@@ -118,6 +134,15 @@ export default function MistakesPage() {
                   <option key={s.id} value={s.slug}>{s.name}</option>
                 ))}
               </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={startFixAllBySubject}
+                disabled={!subjectFilter || items.filter((m) => m.subject?.slug === subjectFilter).length === 0}
+                className="w-full md:w-auto px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg font-semibold transition"
+              >
+                {t('mistakes.fixAllBySubject')}
+              </button>
             </div>
           </div>
         </div>
@@ -159,7 +184,7 @@ export default function MistakesPage() {
                   </div>
                   <button
                     onClick={() => startFix(group.testId, group.items)}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition"
+                    className="px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition"
                   >
                     {t('mistakes.fixButton')}
                   </button>

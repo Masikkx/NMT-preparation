@@ -607,9 +607,9 @@ export default function TestPage() {
                   </div>
                 )}
                 {currentQuestion.type === 'matching' && (
-                  <div className="grid grid-cols-5 grid-rows-5 gap-0 w-56 h-56 sm:w-64 sm:h-64 max-w-full border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden">
+                  <div className="grid grid-cols-6 grid-rows-5 gap-0 w-64 h-56 sm:w-72 sm:h-64 max-w-full border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden">
                     <div className="flex items-center justify-center text-sm font-semibold" />
-                    {['A', 'B', 'C', 'D'].map((c) => (
+                    {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
                       <div
                         key={`head-${c}`}
                         className="flex items-center justify-center text-sm font-semibold border-l border-slate-300 dark:border-slate-600"
@@ -622,7 +622,7 @@ export default function TestPage() {
                         <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600">
                           {row + 1}
                         </div>
-                        {['A', 'B', 'C', 'D'].map((col) => (
+                        {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
                           <label
                             key={`cell-${row}-${col}`}
                             className="flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600"
