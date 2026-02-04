@@ -291,14 +291,14 @@ export default function CreateTestPage() {
             ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnNeedSeven')}`
             : t('adminCreateTest.bulkWarnNeedSeven');
         }
-      } else if (optionLines.length >= 4) {
+      } else if (options.length >= 4) {
         type = 'single_choice';
         const idx = letterOrder.indexOf(answerLetters[0]);
         correctAnswer = idx >= 0 ? idx : 0;
         if (!ans) {
           warnings[listIndex] = t('adminCreateTest.bulkWarnNoAnswer');
         }
-      } else if (optionLines.length === 0) {
+      } else if (options.length === 0) {
         // no options found (likely image-based). Create 4 empty options.
         type = 'single_choice';
         correctAnswer = 0;
