@@ -720,19 +720,19 @@ export default function TestPage() {
                             </div>
                           </div>
                         )}
-                        <div className="grid grid-cols-6 grid-rows-5 gap-0 w-64 h-56 sm:w-72 sm:h-64 max-w-full border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden">
-                          <div className="flex items-center justify-center text-sm font-semibold" />
+                        <div className="grid grid-cols-6 grid-rows-5 auto-rows-fr gap-0 w-full max-w-[340px] sm:max-w-[380px] aspect-[6/5] border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden">
+                          <div className="flex items-center justify-center text-sm font-semibold aspect-square" />
                           {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
                             <div
                               key={`head-${c}`}
-                              className="flex items-center justify-center text-sm font-semibold border-l border-slate-300 dark:border-slate-600"
+                              className="flex items-center justify-center text-sm font-semibold border-l border-slate-300 dark:border-slate-600 aspect-square"
                             >
                               {c}
                             </div>
                           ))}
                           {[0, 1, 2, 3].map((row) => (
                             <div key={`row-${row}`} className="contents">
-                              <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600">
+                              <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600 aspect-square">
                                 {row + 1}
                               </div>
                               {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
@@ -753,7 +753,7 @@ export default function TestPage() {
                                 return (
                                   <label
                                     key={`cell-${row}-${col}`}
-                                    className={`flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600 ${cellClass}`}
+                                    className={`flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600 aspect-square ${cellClass}`}
                                   >
                                     <input
                                       type="radio"

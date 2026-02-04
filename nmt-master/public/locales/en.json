@@ -478,6 +478,7 @@
     "subject": "Subject",
     "allSubjects": "All subjects",
     "fixAllBySubject": "Fix all mistakes in subject",
+    "countLabel": "Mistakes:",
     "type": "Type",
     "allTypes": "All types",
     "search": "Search",

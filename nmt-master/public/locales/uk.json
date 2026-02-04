@@ -478,6 +478,7 @@
     "subject": "Предмет",
     "allSubjects": "Усі предмети",
     "fixAllBySubject": "Виправити всі помилки предмету",
+    "countLabel": "Помилок:",
     "type": "Тип",
     "allTypes": "Усі типи",
     "search": "Пошук",

@@ -152,60 +152,23 @@ export default function MistakesPage() {
         ) : grouped.length === 0 ? (
           <div className="text-center py-12 text-slate-600 dark:text-slate-400">{t('mistakes.empty')}</div>
         ) : (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
-              <h2 className="text-lg font-bold mb-4">{t('mistakes.allMistakes')}</h2>
-              <div className="space-y-3">
-                {items.map((m, idx) => (
-                  <div key={m.id} className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold">
-                        {idx + 1}. {m.questionText || t('results.imageQuestion')}
-                      </p>
-                      <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
-                        {t('mistakes.incorrect')}
-                      </span>
-                    </div>
-                    {m.imageUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.imageUrl} alt="question" className="mt-2 max-h-48 rounded" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {grouped.map((group) => (
-              <div key={group.testId} className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center justify-between gap-4 mb-4">
-                  <div>
-                    <h2 className="text-lg font-bold">{group.testTitle}</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{group.subject?.name}</p>
-                  </div>
+              <div key={group.testId} className="bg-white dark:bg-slate-800 rounded-lg p-5 shadow-md border border-slate-200 dark:border-slate-700">
+                <div className="mb-3">
+                  <h2 className="text-lg font-bold">{group.testTitle}</h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{group.subject?.name}</p>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm px-2 py-1 rounded bg-red-100 text-red-700">
+                    {t('mistakes.countLabel')} {group.items.length}
+                  </span>
                   <button
                     onClick={() => startFix(group.testId, group.items)}
                     className="px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition"
                   >
                     {t('mistakes.fixButton')}
                   </button>
-                </div>
-                <div className="space-y-3">
-                  {group.items.map((m, idx) => (
-                    <div key={m.id} className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold">
-                          {idx + 1}. {m.questionText || t('results.imageQuestion')}
-                        </p>
-                        <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
-                          {t('mistakes.incorrect')}
-                        </span>
-                      </div>
-                      {m.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.imageUrl} alt="question" className="mt-2 max-h-48 rounded" />
-                      )}
-                    </div>
-                  ))}
                 </div>
               </div>
             ))}
