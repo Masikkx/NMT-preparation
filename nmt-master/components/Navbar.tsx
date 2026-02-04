@@ -84,7 +84,7 @@ export function Navbar() {
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center justify-center"
               title="Toggle theme"
             >
               {isDark ? '☀️' : '🌙'}
@@ -100,10 +100,10 @@ export function Navbar() {
                   document.cookie = `lang=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
                 } catch {}
               }}
-              className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-sm font-medium"
+              className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-xs font-semibold flex items-center justify-center"
               title={lang === 'en' ? 'Українська' : 'English'}
             >
-              {lang === 'en' ? '🇬🇧 EN' : '🇺🇦 UK'}
+              {lang === 'en' ? 'EN' : 'UK'}
             </button>
           </div>
 
@@ -124,14 +124,14 @@ export function Navbar() {
                   document.cookie = `lang=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
                 } catch {}
               }}
-              className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-xs font-medium"
+              className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-xs font-semibold flex items-center justify-center"
               title={lang === 'en' ? 'Українська' : 'English'}
             >
-              {lang === 'en' ? 'UK' : 'EN'}
+              {lang === 'en' ? 'EN' : 'UK'}
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800"
+              className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center"
             >
               ☰
             </button>
@@ -151,6 +151,9 @@ export function Navbar() {
                 </Link>
                 <Link href="/mistakes" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
                   {t('nav.mistakes')}
+                </Link>
+                <Link href="/profile" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
+                  {t('nav.profile')}
                 </Link>
                 {user.role === 'admin' && (
                   <Link href="/admin" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">

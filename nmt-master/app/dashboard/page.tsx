@@ -225,16 +225,18 @@ export default function DashboardPage() {
           {results.length > 0 && (
             <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
               <h2 className="text-2xl font-bold mb-6">{t('dashboard.recentPerformance')}</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
+              <div className="h-56 sm:h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis domain={[0, 200]} />
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="score" fill="#2563eb" name={t('dashboard.score')} />
-                </BarChart>
-              </ResponsiveContainer>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
 
@@ -306,7 +308,7 @@ export default function DashboardPage() {
                 {totalHours}h {totalMinutes}m
               </div>
             </div>
-            <div className="h-48">
+            <div className="h-40 sm:h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={timeBySubjectData} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" />

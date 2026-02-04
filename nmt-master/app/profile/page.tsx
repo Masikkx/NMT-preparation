@@ -89,7 +89,7 @@ export default function ProfilePage() {
         <h1 className="text-4xl font-bold mb-8">{t('profile.title')}</h1>
 
         <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-8">
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-200">
               {avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -160,7 +160,8 @@ export default function ProfilePage() {
             </select>
           </div>
 
-          <table className="w-full text-left">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
             <thead className="border-b border-slate-200 dark:border-slate-700">
               <tr>
                 <th className="py-3 px-4">{t('profile.test')}</th>
@@ -184,6 +185,7 @@ export default function ProfilePage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>
