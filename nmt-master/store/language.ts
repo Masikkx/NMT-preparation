@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import enFallback from '../public/locales/en.json';
+import ukFallback from '../public/locales/uk.json';
 
 type Language = 'en' | 'uk';
 
@@ -29,7 +31,7 @@ export const useLanguageStore = create<LanguageState>()(
   persist(
     (set, get) => ({
       lang: 'en',
-      translations: { en: {}, uk: {} },
+      translations: { en: enFallback, uk: ukFallback },
       ready: false,
       setLang: (lang: Language) => {
         set({ lang });
@@ -44,12 +46,16 @@ export const useLanguageStore = create<LanguageState>()(
             fetch('/locales/en.json'),
             fetch('/locales/uk.json'),
           ]);
+          if (!enRes.ok || !ukRes.ok) {
+            throw new Error('Translation fetch failed');
+          }
           const en = await enRes.json();
           const uk = await ukRes.json();
           set({ translations: { en, uk }, ready: true });
         } catch (err) {
           console.error('Failed to load translations', err);
-          set({ ready: true });
+          // Fallback to bundled translations so UI never shows raw keys
+          set({ translations: { en: enFallback, uk: ukFallback }, ready: true });
         }
       },
       t: (key: string) => {

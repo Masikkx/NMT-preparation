@@ -152,13 +152,23 @@ export default function CreateTestPage() {
       return;
     }
 
-    const normalized = text.replace(/\r\n/g, '\n');
+    const normalizeInline = (input: string) =>
+      input
+        .replace(/([^\n])\s+(\d+\.)\s/g, '$1\n$2 ')
+        .replace(/([^\n])\s+([АБВГДЕЄ])\.\s/g, '$1\n$2. ');
+
+    const normalized = normalizeInline(text.replace(/\r\n/g, '\n'));
     const parts = normalized.split(/ВІДПОВІДІ/i);
     if (parts.length < 2) {
       setBulkError(t('adminCreateTest.bulkNoAnswers'));
       return;
     }
-    const body = parts[0].trim();
+    const body = normalizeInline(parts[0])
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/^\d{1,6}$/.test(l))
+      .join('\n')
+      .trim();
     const answersBlock = parts.slice(1).join(' ').trim();
 
     const answerMap = new Map<number, string>();
@@ -173,25 +183,51 @@ export default function CreateTestPage() {
       }
     }
 
-    const questionStarts: { id: number; index: number }[] = [];
-    const reAll = /(^|\n)(\d+)\.\s/g;
-    let lastNum = 0;
-    let mm: RegExpExecArray | null;
-    while ((mm = reAll.exec(body))) {
-      const num = Number(mm[2]);
-      if (num > lastNum) {
-        const pos = mm.index + (mm[1] ? 1 : 0);
-        questionStarts.push({ id: num, index: pos });
-        lastNum = num;
+    const questionBlocks: { id: number; text: string }[] = [];
+    const bodyLines = body
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/^\d{1,6}$/.test(l));
+    let currentId = 0;
+    let currentLines: string[] = [];
+    let inMatching = false;
+    let seenOptions = false;
+    const optionHeaderRegex = /^\s*([АБВГДЕЄ])\.\s*/;
+
+    const flushBlock = () => {
+      if (currentId > 0 && currentLines.length > 0) {
+        questionBlocks.push({
+          id: currentId,
+          text: normalizeInline(currentLines.join('\n')).trim(),
+        });
+      }
+    };
+
+    for (const line of bodyLines) {
+      const m = line.match(/^(\d+)\.\s*(.*)$/);
+      if (m) {
+        const num = Number(m[1]);
+        const isPotentialStart = num > currentId;
+        const isMatchingListItem = inMatching && num <= 4 && !seenOptions;
+        if (isPotentialStart && !isMatchingListItem) {
+          flushBlock();
+          currentId = num;
+          currentLines = [line];
+          inMatching = /Установіть\s+відповідність/i.test(line);
+          seenOptions = optionHeaderRegex.test(line);
+          continue;
+        }
+      }
+      if (currentId === 0) continue;
+      currentLines.push(line);
+      if (!inMatching && /Установіть\s+відповідність/i.test(line)) {
+        inMatching = true;
+      }
+      if (optionHeaderRegex.test(line)) {
+        seenOptions = true;
       }
     }
-    const questionBlocks: { id: number; text: string }[] = [];
-    for (let i = 0; i < questionStarts.length; i++) {
-      const start = questionStarts[i].index;
-      const end = i + 1 < questionStarts.length ? questionStarts[i + 1].index : body.length;
-      const slice = body.slice(start, end).trim();
-      questionBlocks.push({ id: questionStarts[i].id, text: slice });
-    }
+    flushBlock();
 
     const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
 
@@ -201,32 +237,36 @@ export default function CreateTestPage() {
       const qb = questionBlocks[idx];
       const listIndex = idx + 1;
       const ans = answerMap.get(qb.id) || '';
-      const lines = qb.text
+      const lines = normalizeInline(qb.text)
         .replace(/^\d+\.\s*/, '')
         .split('\n')
         .map((l) => l.trim())
-        .filter(Boolean);
+        .filter((l) => l && !/^\d{1,6}$/.test(l));
 
       const optionHeaderRegex = /^\s*([АБВГДЕЄ])\.\s*/;
-      const optionLines: string[] = [];
+      const optionLinesRaw: string[] = [];
+      const optionLinesText: string[] = [];
       const leftMatchLines = lines.filter((l) => /^\d+\.\s/.test(l));
       for (const line of lines) {
         const headerMatch = line.match(optionHeaderRegex);
         if (headerMatch) {
-          optionLines.push(line.replace(optionHeaderRegex, '').trim());
-        } else if (optionLines.length > 0 && !/^\d+\.\s/.test(line)) {
+          const text = line.replace(optionHeaderRegex, '').trim();
+          optionLinesText.push(text);
+          optionLinesRaw.push(`${headerMatch[1]}. ${text}`.trim());
+        } else if (optionLinesText.length > 0 && !/^\d+\.\s/.test(line)) {
           // continuation of previous option line
-          optionLines[optionLines.length - 1] = `${optionLines[optionLines.length - 1]} ${line}`.trim();
+          optionLinesText[optionLinesText.length - 1] = `${optionLinesText[optionLinesText.length - 1]} ${line}`.trim();
+          optionLinesRaw[optionLinesRaw.length - 1] = `${optionLinesRaw[optionLinesRaw.length - 1]} ${line}`.trim();
         }
       }
 
-      const options = optionLines;
+      const options = optionLinesText;
       const answerLetters = ans.replace(/[^A-ZА-ЯІЇЄҐ]/g, '').toUpperCase();
 
       let type: Question['type'] = 'single_choice';
       let correctAnswer: Question['correctAnswer'] = 0;
 
-      const isMatching = /Установіть\s+відповідність/i.test(qb.text) && leftMatchLines.length >= 4 && optionLines.length >= 4 && answerLetters.length === 4;
+      const isMatching = /Установіть\s+відповідність/i.test(qb.text) && leftMatchLines.length >= 4 && optionLinesRaw.length >= 4 && answerLetters.length === 4;
       const isSelectThree = answerLetters.length === 3 && !isMatching;
       const isWritten = optionLines.length === 0 && /^\d+$/.test(ans) && testData.subject === 'mathematics';
 
@@ -269,7 +309,7 @@ export default function CreateTestPage() {
         if (isMatching) {
           const prompt = lines.find((l) => !/^\d+\./.test(l) && !/^[А-ЯA-Z]\./.test(l)) || '';
           const left = leftMatchLines.join('\n');
-          const right = optionLines.join('\n');
+          const right = optionLinesRaw.join('\n');
           return [prompt, left, right].filter(Boolean).join('\n');
         }
         const firstOptionIndex = lines.findIndex((l) => /^[А-ЯA-Z]\./.test(l));

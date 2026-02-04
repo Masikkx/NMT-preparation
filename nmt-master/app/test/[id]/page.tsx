@@ -487,6 +487,11 @@ export default function TestPage() {
     return { prompt, left, right };
   };
 
+  const matchingParts =
+    currentQuestion.type === 'matching'
+      ? getMatchingLists(currentQuestion.content || '')
+      : null;
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       {/* Header */}
@@ -572,7 +577,11 @@ export default function TestPage() {
             {/* Question */}
             <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-6">
               {currentQuestion.content && (
-                <h2 className="text-xl font-bold mb-4">{currentQuestion.content}</h2>
+                <h2 className="text-xl font-bold mb-4 whitespace-pre-line">
+                  {currentQuestion.type === 'matching'
+                    ? matchingParts?.prompt || currentQuestion.content
+                    : currentQuestion.content}
+                </h2>
               )}
               {currentQuestion.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -679,7 +688,7 @@ export default function TestPage() {
                 )}
                 {currentQuestion.type === 'matching' && (
                   (() => {
-                    const { left, right } = getMatchingLists(currentQuestion.content || '');
+                    const { left, right } = matchingParts || { left: [], right: [] };
                     const correctMatching = currentQuestion.answers
                       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                       .map((a) => a.matchingPair)
