@@ -106,9 +106,6 @@ export default function LeaderboardPage() {
                         <td className="py-4 px-6">
                           <div>
                             <p className="font-semibold">{entry.user.name}</p>
-                            <p className="text-sm text-slate-600 dark:text-slate-400">
-                              {entry.user.email}
-                            </p>
                           </div>
                         </td>
                         <td className="py-4 px-6 text-center">
