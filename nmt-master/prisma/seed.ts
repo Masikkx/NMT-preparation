@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { hashPassword } from '../lib/auth';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -53,7 +53,7 @@ async function main() {
   console.log(`Created ${subjects.length} subjects`);
 
   // Create admin user
-  const adminPassword = await hashPassword('0689939242');
+  const adminPassword = await bcrypt.hash('0689939242', 10);
   const adminUser = await prisma.user.upsert({
     where: { email: 'www.macs2009@gmail.com' },
     update: {},
@@ -119,10 +119,10 @@ async function main() {
             points: 1,
             answers: {
               create: [
-                { content: '[ʐ] - soft zh sound', order: 1, isCorrect: true },
-                { content: '[ʒ] - English zh sound', order: 2, isCorrect: false },
-                { content: '[dʐ] - dz sound', order: 3, isCorrect: false },
-                { content: '[ʃ] - sh sound', order: 4, isCorrect: false },
+                { content: '[ʐ] - soft zh sound', order: 1, isCorrect: true, type: 'single_choice' },
+                { content: '[ʒ] - English zh sound', order: 2, isCorrect: false, type: 'single_choice' },
+                { content: '[dʐ] - dz sound', order: 3, isCorrect: false, type: 'single_choice' },
+                { content: '[ʃ] - sh sound', order: 4, isCorrect: false, type: 'single_choice' },
               ],
             },
           },
@@ -133,7 +133,7 @@ async function main() {
             points: 1,
             answers: {
               create: [
-                { content: 'кіт', order: 1, isCorrect: true },
+                { content: 'кіт', order: 1, isCorrect: true, type: 'text' },
               ],
             },
           },
@@ -144,10 +144,10 @@ async function main() {
             points: 1,
             answers: {
               create: [
-                { content: 'А', order: 1, isCorrect: true },
-                { content: 'Б', order: 2, isCorrect: false },
-                { content: 'В', order: 3, isCorrect: false },
-                { content: 'Г', order: 4, isCorrect: false },
+                { content: 'А', order: 1, isCorrect: true, type: 'single_choice' },
+                { content: 'Б', order: 2, isCorrect: false, type: 'single_choice' },
+                { content: 'В', order: 3, isCorrect: false, type: 'single_choice' },
+                { content: 'Г', order: 4, isCorrect: false, type: 'single_choice' },
               ],
             },
           },
