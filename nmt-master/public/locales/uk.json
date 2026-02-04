@@ -491,6 +491,7 @@
   "profile": {
     "title": "Профіль",
     "avatar": "Аватар",
+    "pasteAvatarHint": "Можна вставити фото з буфера обміну",
     "name": "Ім'я",
     "email": "Email",
     "bio": "Про себе",

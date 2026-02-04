@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ClipboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import Link from 'next/link';
@@ -84,6 +84,20 @@ export default function ProfilePage() {
     }
   };
 
+  const handlePasteAvatar = async (e: ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          await uploadAvatar(file);
+          break;
+        }
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-5xl mx-auto px-4 py-12">
@@ -98,7 +112,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4" onPaste={handlePasteAvatar} tabIndex={0}>
             <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-200">
               {avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -115,6 +129,7 @@ export default function ProfilePage() {
                   if (f) uploadAvatar(f);
                 }}
               />
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{t('profile.pasteAvatarHint')}</p>
             </div>
           </div>
 

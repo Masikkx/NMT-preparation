@@ -491,6 +491,7 @@
   "profile": {
     "title": "Profile",
     "avatar": "Avatar",
+    "pasteAvatarHint": "You can paste an image from clipboard here",
     "name": "Name",
     "email": "Email",
     "bio": "Bio",
