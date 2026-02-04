@@ -280,6 +280,9 @@
     "typeMatching": "Відповідність",
     "typeSelectThree": "3 з 7",
     "typeMultiple": "Кілька відповідей"
+    ,
+    "explain": "Пояснити помилку",
+    "explaining": "Пояснюємо..."
   },
   "leaderboard": {
     "title": "Рейтинг",

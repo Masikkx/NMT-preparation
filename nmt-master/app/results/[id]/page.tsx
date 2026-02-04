@@ -31,6 +31,8 @@ export default function ResultsPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<any>(null);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [explainLoading, setExplainLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     // Note: We'll need to add an API endpoint to fetch a single result
@@ -256,6 +258,49 @@ export default function ResultsPage() {
                       ? correctSelectThree.join(', ')
                       : correctTexts.join(', ')}
                   </p>
+
+                  {status !== 'correct' && (
+                    <div className="mt-3">
+                      <button
+                        onClick={async () => {
+                          if (explanations[q.id]) return;
+                          setExplainLoading((prev) => ({ ...prev, [q.id]: true }));
+                          try {
+                            const res = await fetch('/api/ai/explain', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                subject: detail?.attempt?.test?.subject?.name,
+                                question: q.content || t('results.imageQuestion'),
+                                options: q.answers?.map((a: any) => a.content).filter(Boolean),
+                                correct: q.type === 'matching'
+                                  ? correctMatching.join(', ')
+                                  : q.type === 'select_three'
+                                  ? correctSelectThree.join(', ')
+                                  : correctTexts.join(', '),
+                                userAnswer: Array.isArray(userAnswer) ? userAnswer.join(', ') : String(userAnswer || ''),
+                              }),
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setExplanations((prev) => ({ ...prev, [q.id]: data.text || '' }));
+                            }
+                          } catch {
+                          } finally {
+                            setExplainLoading((prev) => ({ ...prev, [q.id]: false }));
+                          }
+                        }}
+                        className="px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
+                      >
+                        {explainLoading[q.id] ? t('results.explaining') : t('results.explain')}
+                      </button>
+                      {explanations[q.id] && (
+                        <div className="mt-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-300">
+                          {explanations[q.id]}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

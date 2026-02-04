@@ -190,6 +190,52 @@ export default function TestPage() {
     setAnswers(restored);
   };
 
+  const rebuildCheckState = (t: Test, restoredAnswers: Record<string, any>) => {
+    const nextChecked: Record<string, boolean> = {};
+    const nextStatus: Record<string, 'correct' | 'incorrect' | 'partial'> = {};
+    const nextCorrectText: Record<string, string> = {};
+
+    t.questions.forEach((q, idx) => {
+      const userAnswer = restoredAnswers[q.id];
+      if (userAnswer === undefined) return;
+      const correctAnswerIds = q.answers.filter((a) => a.isCorrect).map((a) => a.id);
+      const correctAnswerTexts = q.answers.filter((a) => a.isCorrect).map((a) => a.content);
+      const correctMatching = q.answers
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((a) => a.matchingPair)
+        .filter((v) => v) as string[];
+      const correctSelectThree = q.answers
+        .filter((a) => a.isCorrect)
+        .map((a) => String(a.order));
+      const { isCorrect, partialCredit } = checkAnswer(
+        q.type,
+        userAnswer ?? '',
+        q.type === 'written' || q.type === 'select_three' || q.type === 'matching'
+          ? q.type === 'matching'
+            ? correctMatching
+            : q.type === 'select_three'
+            ? correctSelectThree
+            : correctAnswerTexts
+          : correctAnswerIds
+      );
+      nextChecked[q.id] = true;
+      nextStatus[q.id] = isCorrect ? 'correct' : partialCredit ? 'partial' : 'incorrect';
+      if (q.type === 'written' && !isCorrect) {
+        nextCorrectText[q.id] = correctAnswerTexts[0] || '';
+      }
+    });
+
+    setChecked(nextChecked);
+    setStatusMap(nextStatus);
+    setCorrectTextMap(nextCorrectText);
+
+    // Jump to last answered question
+    const lastAnsweredIndex = t.questions.reduce((acc, q, i) => {
+      return restoredAnswers[q.id] !== undefined ? i : acc;
+    }, 0);
+    setCurrentQuestionIndex(lastAnsweredIndex);
+  };
+
   const restoreProgress = (id: string) => {
     try {
       const raw = localStorage.getItem(`attempt_progress_${id}`);
@@ -218,6 +264,13 @@ export default function TestPage() {
       localStorage.setItem(`attempt_progress_${attemptId}`, JSON.stringify(payload));
     } catch {}
   }, [attemptId, answers, currentQuestionIndex, timeRemaining, checked, statusMap, correctTextMap]);
+
+  useEffect(() => {
+    if (!test || !attemptId) return;
+    if (Object.keys(answers).length === 0) return;
+    if (Object.keys(checked).length > 0) return;
+    rebuildCheckState(test, answers);
+  }, [test, attemptId, answers, checked]);
 
   // Timer effect
   useEffect(() => {
