@@ -637,7 +637,7 @@ export default function TestPage() {
 
                 {currentQuestion.type === 'select_three' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       {currentQuestion.answers
                         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                         .map((answer, idx) => (
