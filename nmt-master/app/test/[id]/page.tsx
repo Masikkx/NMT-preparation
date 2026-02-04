@@ -704,7 +704,7 @@ export default function TestPage() {
 
               {/* Question List */}
               <h4 className="font-semibold text-sm mb-3">{t('test.questionsLabel')}</h4>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-6 gap-2 justify-items-center">
                 {test.questions.map((q, idx) => (
                   <button
                     key={q.id}
