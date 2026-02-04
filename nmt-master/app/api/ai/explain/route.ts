@@ -4,10 +4,6 @@ import OpenAI from 'openai';
 
 export const runtime = 'nodejs';
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -22,6 +18,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'AI not configured' }, { status: 503 });
+    }
+    const client = new OpenAI({ apiKey });
     const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
     const prompt = [
       `Subject: ${subject || 'NMT'}`,
