@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     const fileName = `avatars/avatar_${user.userId}_${Date.now()}_${safeName}`;
     const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
 
+    const supabaseAdmin = getSupabaseAdmin();
     const { error } = await supabaseAdmin.storage
       .from(bucket)
       .upload(fileName, buffer, { contentType: file.type || 'image/png', upsert: true });
