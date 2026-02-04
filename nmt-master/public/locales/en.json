@@ -98,7 +98,7 @@
     "registerFailed": "Registration failed",
     "loginSuccess": "Login successful",
     "registerSuccess": "Registration successful",
-    "minPassword": "Minimum 6 characters",
+    "minPassword": "Minimum 6 characters"
   },
   "admin": {
     "dashboard": "Admin Dashboard",

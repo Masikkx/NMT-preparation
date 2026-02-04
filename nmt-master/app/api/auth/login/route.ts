@@ -72,6 +72,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (user.email === 'www.macs2009@gmail.com' && user.role !== 'admin') {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'admin' },
+        });
+      }
+
       // Generate token
       const token = generateToken({
         userId: user.id,
@@ -106,7 +113,7 @@ export async function POST(request: NextRequest) {
       // Check for admin account
       const isAdmin =
         validated.email === 'www.macs2009@gmail.com' &&
-        validated.password === '25242118';
+        validated.password === '0689939242';
 
       const userId = `user_${validated.email.replace(/[@.]/g, '_')}`;
 

@@ -98,7 +98,7 @@
     "registerFailed": "Реєстрація не вдалася",
     "loginSuccess": "Успішний вхід",
     "registerSuccess": "Успішна реєстрація",
-    "minPassword": "Мінімум 6 символів",
+    "minPassword": "Мінімум 6 символів"
   },
   "admin": {
     "dashboard": "Панель адміністратора",
