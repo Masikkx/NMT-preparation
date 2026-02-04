@@ -306,7 +306,7 @@ export default function CreateTestPage() {
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.correctAnswerWritten')}</label>
                 <input
                   type="text"
-                  value={currentQuestion.correctAnswer}
+                  value={String(currentQuestion.correctAnswer ?? '')}
                   onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
                   placeholder={t('adminCreateTest.correctAnswerPlaceholder')}
