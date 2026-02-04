@@ -53,75 +53,6 @@ export default function ResultsPage() {
     } catch {}
   };
 
-  const getMistakeIds = () => {
-    if (!detail?.attempt?.test?.questions) return [];
-    const mistakes: string[] = [];
-    for (const q of detail.attempt.test.questions) {
-      const ua = detail.attempt.userAnswers.find((a: any) => a.questionId === q.id);
-      let userAnswer: any = '';
-      if (ua?.answerText) userAnswer = ua.answerText;
-      else if (ua?.answerIds) {
-        try { userAnswer = JSON.parse(ua.answerIds); } catch { userAnswer = []; }
-      }
-      const correctTexts = q.answers.filter((a: any) => a.isCorrect).map((a: any) => a.content);
-      const correctSelectThree = q.answers
-        .filter((a: any) => a.isCorrect)
-        .map((a: any) => String(a.order));
-      const correctMatching = q.answers
-        .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
-        .map((a: any) => a.matchingPair)
-        .filter((v: any) => v);
-      const { isCorrect } = checkAnswer(
-        q.type,
-        userAnswer,
-        q.type === 'matching'
-          ? correctMatching
-          : q.type === 'select_three'
-          ? correctSelectThree
-          : q.type === 'written'
-          ? correctTexts
-          : q.answers.filter((a: any) => a.isCorrect).map((a: any) => a.id)
-      );
-      if (!isCorrect) mistakes.push(q.id);
-    }
-    return mistakes;
-  };
-
-  const getMistakePairs = () => {
-    if (!detail?.attempt?.test?.questions) return [];
-    const pairs: { id: string; content: string }[] = [];
-    for (const q of detail.attempt.test.questions) {
-      const ua = detail.attempt.userAnswers.find((a: any) => a.questionId === q.id);
-      let userAnswer: any = '';
-      if (ua?.answerText) userAnswer = ua.answerText;
-      else if (ua?.answerIds) {
-        try { userAnswer = JSON.parse(ua.answerIds); } catch { userAnswer = []; }
-      }
-      const correctTexts = q.answers.filter((a: any) => a.isCorrect).map((a: any) => a.content);
-      const correctSelectThree = q.answers
-        .filter((a: any) => a.isCorrect)
-        .map((a: any) => String(a.order));
-      const correctMatching = q.answers
-        .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
-        .map((a: any) => a.matchingPair)
-        .filter((v: any) => v);
-      const { isCorrect } = checkAnswer(
-        q.type,
-        userAnswer,
-        q.type === 'matching'
-          ? correctMatching
-          : q.type === 'select_three'
-          ? correctSelectThree
-          : q.type === 'written'
-          ? correctTexts
-          : q.answers.filter((a: any) => a.isCorrect).map((a: any) => a.id)
-      );
-      if (!isCorrect) {
-        pairs.push({ id: q.id, content: q.content || t('results.imageQuestion') });
-      }
-    }
-    return pairs;
-  };
 
   if (loading) {
     return <div className="text-center py-20">{t('results.loading')}</div>;
@@ -156,58 +87,14 @@ export default function ResultsPage() {
     return `${mins}${t('results.minutesShort')} ${secs}${t('results.secondsShort')}`;
   };
 
-  const typeLabels: Record<string, string> = {
-    single_choice: t('results.typeSingle'),
-    written: t('results.typeWritten'),
-    matching: t('results.typeMatching'),
-    select_three: t('results.typeSelectThree'),
-    multiple_answers: t('results.typeMultiple'),
-  };
-
-  const typeStats = (() => {
-    if (!detail?.attempt?.test?.questions) return [];
-    const stats: Record<string, { total: number; correct: number }> = {};
-    for (const q of detail.attempt.test.questions) {
-      const ua = detail.attempt.userAnswers.find((a: any) => a.questionId === q.id);
-      let userAnswer: any = '';
-      if (ua?.answerText) userAnswer = ua.answerText;
-      else if (ua?.answerIds) {
-        try { userAnswer = JSON.parse(ua.answerIds); } catch { userAnswer = []; }
-      }
-      const correctTexts = q.answers.filter((a: any) => a.isCorrect).map((a: any) => a.content);
-      const correctSelectThree = q.answers
-        .filter((a: any) => a.isCorrect)
-        .map((a: any) => String(a.order));
-      const correctMatching = q.answers
-        .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
-        .map((a: any) => a.matchingPair)
-        .filter((v: any) => v);
-      const { isCorrect } = checkAnswer(
-        q.type,
-        userAnswer,
-        q.type === 'matching'
-          ? correctMatching
-          : q.type === 'select_three'
-          ? correctSelectThree
-          : q.type === 'written'
-          ? correctTexts
-          : q.answers.filter((a: any) => a.isCorrect).map((a: any) => a.id)
-      );
-      if (!stats[q.type]) stats[q.type] = { total: 0, correct: 0 };
-      stats[q.type].total += 1;
-      if (isCorrect) stats[q.type].correct += 1;
-    }
-    return Object.entries(stats).map(([type, s]) => ({
-      type,
-      total: s.total,
-      correct: s.correct,
-      accuracy: s.total ? (s.correct / s.total) * 100 : 0,
-    }));
-  })();
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 py-12 px-4">
       <div className="max-w-2xl mx-auto">
+        <div className="mb-4">
+          <Link href="/" className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600">
+            ← {t('results.goHome')}
+          </Link>
+        </div>
         {result ? (
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl overflow-hidden">
             {/* Header */}
@@ -295,33 +182,8 @@ export default function ResultsPage() {
               {/* Actions */}
               <div className="flex flex-wrap gap-4 pt-4">
                 <Link
-                  href="/tests"
-                  className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition text-center"
-                >
-                  {t('results.takeAnotherTest')}
-                </Link>
-                {detail?.attempt?.test?.id && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const mistakes = getMistakeIds();
-                      const pairs = getMistakePairs();
-                      try {
-                        localStorage.setItem(`mistakes_${detail.attempt.test.id}`, JSON.stringify(mistakes));
-                        localStorage.setItem(`mistakes_meta_${detail.attempt.test.id}`, JSON.stringify(pairs));
-                      } catch {}
-                      if (mistakes.length > 0) {
-                        location.href = `/test/${detail.attempt.test.id}?mode=fix`;
-                      }
-                    }}
-                    className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition text-center"
-                  >
-                    {t('results.practiceMistakes')}
-                  </button>
-                )}
-                <Link
                   href="/dashboard"
-                  className="flex-1 px-6 py-3 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 font-semibold rounded-lg transition text-center"
+                  className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition text-center"
                 >
                   {t('results.viewDashboard')}
                 </Link>
@@ -401,28 +263,6 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {typeStats.length > 0 && (
-        <div className="max-w-4xl mx-auto mt-8 bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6">
-          <h2 className="text-2xl font-bold mb-4">{t('results.recommendationsTitle')}</h2>
-          <div className="space-y-3">
-            {typeStats.map((s) => (
-              <div key={s.type} className="flex items-center justify-between gap-4 p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
-                <div>
-                  <p className="font-semibold">{typeLabels[s.type] || s.type}</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    {s.correct}/{s.total} · {s.accuracy.toFixed(1)}%
-                  </p>
-                </div>
-                <span className={`text-sm font-semibold ${
-                  s.accuracy < 70 ? 'text-red-600' : 'text-green-600'
-                }`}>
-                  {s.accuracy < 70 ? t('results.recommendationLow') : t('results.recommendationOk')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

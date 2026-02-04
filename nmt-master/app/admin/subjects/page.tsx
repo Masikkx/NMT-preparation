@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useEffect, useState } from 'react';
 import { useLanguageStore } from '@/store/language';
+import Link from 'next/link';
 
 export default function AdminSubjectsPage() {
   const router = useRouter();
@@ -68,10 +69,20 @@ export default function AdminSubjectsPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-8">{t('adminSubjects.title')}</h1>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
-          {t('adminSubjects.subtitle')}
-        </p>
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">{t('adminSubjects.title')}</h1>
+            <p className="text-slate-600 dark:text-slate-400">
+              {t('adminSubjects.subtitle')}
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
+        </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-8">
           <h2 className="text-xl font-bold mb-4">{t('adminSubjects.createTitle')}</h2>

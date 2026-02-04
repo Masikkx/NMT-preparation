@@ -135,7 +135,15 @@ export default function CreateTestPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">{t('adminCreateTest.title')}</h1>
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-8">
+          <h1 className="text-3xl font-bold">{t('adminCreateTest.title')}</h1>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
+        </div>
 
         {/* Test Info */}
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-8">
@@ -398,9 +406,9 @@ export default function CreateTestPage() {
           </div>
 
           {/* Questions List */}
-          <div className="space-y-2">
-            {questions.map((q, i) => (
-              <div key={i} className="flex justify-between items-start p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+            <div className="space-y-2">
+              {questions.map((q, i) => (
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
                 <div>
                   <p className="font-medium">{t('adminCreateTest.questionLabel')} {i + 1}: {q.text.substring(0, 50)}...</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">

@@ -94,19 +94,27 @@ export default function AdminTestsPage() {
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 py-12">
         {/* Header */}
-        <div className="flex justify-between items-center mb-12">
+        <div className="flex justify-between items-center mb-12 flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-bold mb-2">{t('adminTests.title')}</h1>
             <p className="text-slate-600 dark:text-slate-400">
               {t('adminTests.subtitle')}
             </p>
           </div>
+          <div className="flex gap-3 flex-wrap">
+            <Link
+              href="/"
+              className="px-3 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              ← {t('results.goHome')}
+            </Link>
             <Link
               href="/admin/tests/create"
               className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
             >
               + {t('adminTests.createTest')}
             </Link>
+          </div>
         </div>
 
         {/* Filters */}
@@ -174,7 +182,7 @@ export default function AdminTestsPage() {
           </div>
         ) : (
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-            <div className="overflow-x-auto">
+            <div className="hidden md:block">
               <table className="w-full">
                 <thead className="bg-slate-100 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
                   <tr>
@@ -248,6 +256,61 @@ export default function AdminTestsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="md:hidden p-4 space-y-3">
+              {tests.map((test) => (
+                <div key={test.id} className="p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{test.title}</p>
+                      <p className="text-xs text-slate-500">{test.subject.name}</p>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700">
+                      {test.questionCount ?? test._count?.questions ?? 0}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-slate-500">
+                      {test.type === 'topic' ? t('adminTests.typeTopic') : t('adminTests.typePastNmt')}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full ${
+                      test.isPublished
+                        ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                        : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                    }`}>
+                      {test.isPublished ? t('adminTests.published') : t('adminTests.draft')}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex gap-3 text-sm">
+                    <Link href={`/admin/tests/${test.id}`} className="text-blue-600 font-semibold">
+                      {t('adminTests.edit')}
+                    </Link>
+                    {deleteConfirm === test.id ? (
+                      <>
+                        <button
+                          onClick={() => handleDelete(test.id)}
+                          className="text-red-600 font-semibold"
+                        >
+                          {t('adminTests.confirm')}
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          className="text-slate-600 font-semibold"
+                        >
+                          {t('adminTests.cancel')}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirm(test.id)}
+                        className="text-red-600 font-semibold"
+                      >
+                        {t('adminTests.delete')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

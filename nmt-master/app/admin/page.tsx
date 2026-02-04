@@ -47,11 +47,19 @@ export default function AdminPage() {
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 py-12">
         {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-2">{t('adminPanel.title')}</h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            {t('adminPanel.subtitle')}
-          </p>
+        <div className="mb-12 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">{t('adminPanel.title')}</h1>
+            <p className="text-slate-600 dark:text-slate-400">
+              {t('adminPanel.subtitle')}
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
         </div>
 
         {/* Admin Menu */}
@@ -67,16 +75,6 @@ export default function AdminPage() {
             </p>
           </Link>
 
-          <Link
-            href="/admin/questions"
-            className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 rounded-lg p-8 hover:shadow-lg transition border border-green-200 dark:border-green-700"
-          >
-            <div className="text-4xl mb-4">❓</div>
-            <h2 className="text-xl font-bold mb-2">{t('adminPanel.questionsLibrary')}</h2>
-            <p className="text-slate-600 dark:text-slate-400">
-              {t('adminPanel.questionsLibraryDesc')}
-            </p>
-          </Link>
 
           <Link
             href="/admin/users"

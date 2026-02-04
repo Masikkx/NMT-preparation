@@ -171,11 +171,19 @@ export default function TestsPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">{subjectName}</h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            {tests.length} {t('tests.testsAvailable')}
-          </p>
+        <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">{subjectName}</h1>
+            <p className="text-slate-600 dark:text-slate-400">
+              {tests.length} {t('tests.testsAvailable')}
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
         </div>
 
         {pausedAttempts.length > 0 && (

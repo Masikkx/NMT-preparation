@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/store/auth';
 import { useThemeStore } from '@/store/theme';
 import { useLanguageStore } from '@/store/language';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
 export function Navbar() {
@@ -12,12 +12,16 @@ export function Navbar() {
   const { isDark, toggleTheme } = useThemeStore();
   const { lang, setLang, t, translations } = useLanguageStore();
   const router = useRouter();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
   void translations;
 
   const handleLogout = async () => {
@@ -46,9 +50,6 @@ export function Navbar() {
                 <Link href="/dashboard" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition">
                   {t('nav.dashboard')}
                 </Link>
-                <Link href="/tests" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition">
-                  {t('nav.tests')}
-                </Link>
                 <Link href="/mistakes" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition">
                   {t('nav.mistakes')}
                 </Link>
@@ -71,14 +72,7 @@ export function Navbar() {
                 </div>
               </>
             ) : (
-              <>
-                <Link href="/login" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition">
-                  {t('nav.login')}
-                </Link>
-                <Link href="/register" className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition text-nowrap">
-                  {t('nav.register')}
-                </Link>
-              </>
+              null
             )}
 
             {/* Theme Toggle */}
@@ -146,9 +140,6 @@ export function Navbar() {
                 <Link href="/dashboard" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
                   {t('nav.dashboard')}
                 </Link>
-                <Link href="/tests" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
-                  {t('nav.tests')}
-                </Link>
                 <Link href="/mistakes" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
                   {t('nav.mistakes')}
                 </Link>
@@ -160,9 +151,6 @@ export function Navbar() {
                     {t('nav.admin')}
                   </Link>
                 )}
-                <div className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400">
-                  {user.name}
-                </div>
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
@@ -171,14 +159,7 @@ export function Navbar() {
                 </button>
               </>
             ) : (
-              <>
-                <Link href="/login" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
-                  {t('nav.login')}
-                </Link>
-                <Link href="/register" className="block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
-                  {t('nav.register')}
-                </Link>
-              </>
+              null
             )}
           </div>
         )}

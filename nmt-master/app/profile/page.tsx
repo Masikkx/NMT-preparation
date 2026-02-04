@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
+import Link from 'next/link';
 import { useLanguageStore } from '@/store/language';
 
 export default function ProfilePage() {
@@ -86,7 +87,15 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-5xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-8">{t('profile.title')}</h1>
+        <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+          <h1 className="text-4xl font-bold">{t('profile.title')}</h1>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
+        </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -160,31 +169,48 @@ export default function ProfilePage() {
             </select>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="hidden md:block">
             <table className="w-full text-left">
-            <thead className="border-b border-slate-200 dark:border-slate-700">
-              <tr>
-                <th className="py-3 px-4">{t('profile.test')}</th>
-                <th className="py-3 px-4">{t('profile.subject')}</th>
-                <th className="py-3 px-4">{t('profile.score')}</th>
-                <th className="py-3 px-4">{t('profile.date')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((r) => (
-                <tr key={r.id} className="border-b border-slate-100 dark:border-slate-700">
-                  <td className="py-3 px-4">{r.attempt?.test?.title}</td>
-                  <td className="py-3 px-4">{r.attempt?.test?.subject?.name}</td>
-                  <td className="py-3 px-4">
+              <thead className="border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="py-3 px-4">{t('profile.test')}</th>
+                  <th className="py-3 px-4">{t('profile.subject')}</th>
+                  <th className="py-3 px-4">{t('profile.score')}</th>
+                  <th className="py-3 px-4">{t('profile.date')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => (
+                  <tr key={r.id} className="border-b border-slate-100 dark:border-slate-700">
+                    <td className="py-3 px-4">{r.attempt?.test?.title}</td>
+                    <td className="py-3 px-4">{r.attempt?.test?.subject?.name}</td>
+                    <td className="py-3 px-4">
+                      {r.attempt?.test?.type === 'topic'
+                        ? `${r.correctAnswers}/${r.totalQuestions}`
+                        : r.scaledScore}
+                    </td>
+                    <td className="py-3 px-4">{new Date(r.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden space-y-3">
+            {results.map((r) => (
+              <div key={r.id} className="p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p className="font-semibold">{r.attempt?.test?.title}</p>
+                <p className="text-xs text-slate-500">{r.attempt?.test?.subject?.name}</p>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="font-bold">
                     {r.attempt?.test?.type === 'topic'
                       ? `${r.correctAnswers}/${r.totalQuestions}`
                       : r.scaledScore}
-                  </td>
-                  <td className="py-3 px-4">{new Date(r.createdAt).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                  <span className="text-slate-500">{new Date(r.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
+import Link from 'next/link';
 
 interface MistakeItem {
   id: string;
@@ -30,8 +31,6 @@ export default function MistakesPage() {
   const [loading, setLoading] = useState(true);
   const [subjects, setSubjects] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [subjectFilter, setSubjectFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -43,7 +42,7 @@ export default function MistakesPage() {
 
   useEffect(() => {
     if (user) fetchMistakes();
-  }, [user, subjectFilter, typeFilter, search]);
+  }, [user, subjectFilter]);
 
   const fetchSubjects = async () => {
     try {
@@ -57,8 +56,7 @@ export default function MistakesPage() {
     try {
       const params = new URLSearchParams();
       if (subjectFilter) params.set('subject', subjectFilter);
-      if (typeFilter) params.set('type', typeFilter);
-      if (search) params.set('search', search);
+      // only subject filter is used
       const res = await fetch(`/api/mistakes?${params.toString()}`);
       if (res.ok) setItems(await res.json());
     } catch {
@@ -96,10 +94,18 @@ export default function MistakesPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold mb-6">{t('mistakes.title')}</h1>
+        <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+          <h1 className="text-3xl font-bold">{t('mistakes.title')}</h1>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
+        </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-lg p-6 mb-8 shadow-sm border border-slate-200 dark:border-slate-700">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">{t('mistakes.subject')}</label>
               <select
@@ -113,29 +119,6 @@ export default function MistakesPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">{t('mistakes.type')}</label>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
-              >
-                <option value="">{t('mistakes.allTypes')}</option>
-                <option value="single_choice">{t('results.typeSingle')}</option>
-                <option value="written">{t('results.typeWritten')}</option>
-                <option value="matching">{t('results.typeMatching')}</option>
-                <option value="select_three">{t('results.typeSelectThree')}</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">{t('mistakes.search')}</label>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
-                placeholder={t('mistakes.searchPlaceholder')}
-              />
-            </div>
           </div>
         </div>
 
@@ -145,6 +128,28 @@ export default function MistakesPage() {
           <div className="text-center py-12 text-slate-600 dark:text-slate-400">{t('mistakes.empty')}</div>
         ) : (
           <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
+              <h2 className="text-lg font-bold mb-4">{t('mistakes.allMistakes')}</h2>
+              <div className="space-y-3">
+                {items.map((m, idx) => (
+                  <div key={m.id} className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold">
+                        {idx + 1}. {m.questionText || t('results.imageQuestion')}
+                      </p>
+                      <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
+                        {t('mistakes.incorrect')}
+                      </span>
+                    </div>
+                    {m.imageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.imageUrl} alt="question" className="mt-2 max-h-48 rounded" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {grouped.map((group) => (
               <div key={group.testId} className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between gap-4 mb-4">

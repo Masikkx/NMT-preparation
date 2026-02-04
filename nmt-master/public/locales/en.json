@@ -202,13 +202,29 @@
     "hours": "hours",
     "time": "Time",
     "streakDone": "Completed",
-    "streakLeft": "Remaining"
+    "streakLeft": "Remaining",
+    "noNmtResults": "No results yet"
+  },
+  "subjectPage": {
+    "title": "Subject",
+    "subtitle": "Choose a test type and keep practicing",
+    "topicTests": "Topic tests",
+    "nmtTests": "NMT tests",
+    "unfinished": "Unfinished tests",
+    "sortLabel": "Sort",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortTitleAz": "Title A–Z",
+    "sortTitleZa": "Title Z–A",
+    "sortQuestionsDesc": "More questions",
+    "sortQuestionsAsc": "Fewer questions"
   },
   "tests": {
     "loginRequired": "Please log in to access tests",
     "goToLogin": "Go to Login",
     "allTests": "All Tests",
     "testsAvailable": "tests available",
+    "loading": "Loading tests...",
     "search": "Search",
     "searchPlaceholder": "Search tests...",
     "difficulty": "Difficulty",
@@ -440,6 +456,7 @@
   },
   "mistakes": {
     "title": "Mistakes Library",
+    "allMistakes": "All mistakes",
     "subject": "Subject",
     "allSubjects": "All subjects",
     "type": "Type",

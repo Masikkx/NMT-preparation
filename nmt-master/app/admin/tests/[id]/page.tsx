@@ -4,6 +4,7 @@ import { useEffect, useState, type ClipboardEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
+import Link from 'next/link';
 
 interface EditQuestion {
   type: 'single_choice' | 'written' | 'matching' | 'select_three';
@@ -154,6 +155,11 @@ export default function AdminEditTestPage() {
       if (!res.ok) {
         throw new Error('Failed to save test');
       }
+      const payload = await res.json().catch(() => null);
+      if (payload?.deleted) {
+        router.push('/admin/tests');
+        return;
+      }
       router.push('/admin/tests');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save test');
@@ -248,7 +254,15 @@ export default function AdminEditTestPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold mb-6">{t('adminEditTest.title')}</h1>
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
+          <h1 className="text-3xl font-bold">{t('adminEditTest.title')}</h1>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
+        </div>
 
         {error && (
           <div className="mb-4 p-3 rounded bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
@@ -516,7 +530,7 @@ export default function AdminEditTestPage() {
 
           <div className="space-y-2">
             {test.questions.map((q, i) => (
-              <div key={i} className="flex justify-between items-start p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
                 <div>
                   <p className="font-medium">{t('adminCreateTest.questionLabel')} {i + 1}: {q.text.substring(0, 50)}...</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">

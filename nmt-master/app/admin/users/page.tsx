@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
+import Link from 'next/link';
 
 interface UserData {
   id: string;
@@ -55,30 +56,51 @@ export default function AdminUsersPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-8">{t('adminUsers.title')}</h1>
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-8">
+          <h1 className="text-4xl font-bold">{t('adminUsers.title')}</h1>
+          <Link
+            href="/"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            ← {t('results.goHome')}
+          </Link>
+        </div>
         {error && <p className="text-red-600 mb-4">{error}</p>}
         <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
           {loading ? (
             <p>{t('adminUsers.loading')}</p>
           ) : (
-            <table className="w-full text-left">
-              <thead className="border-b border-slate-200 dark:border-slate-700">
-                <tr>
-                  <th className="py-3 px-4">{t('adminUsers.email')}</th>
-                  <th className="py-3 px-4">{t('adminUsers.name')}</th>
-                  <th className="py-3 px-4">{t('adminUsers.role')}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <div className="hidden md:block">
+                <table className="w-full text-left">
+                  <thead className="border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="py-3 px-4">{t('adminUsers.email')}</th>
+                      <th className="py-3 px-4">{t('adminUsers.name')}</th>
+                      <th className="py-3 px-4">{t('adminUsers.role')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-b border-slate-100 dark:border-slate-700">
+                        <td className="py-3 px-4">{u.email}</td>
+                        <td className="py-3 px-4">{u.name || '-'}</td>
+                        <td className="py-3 px-4">{u.role}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="md:hidden space-y-3">
                 {users.map((u) => (
-                  <tr key={u.id} className="border-b border-slate-100 dark:border-slate-700">
-                    <td className="py-3 px-4">{u.email}</td>
-                    <td className="py-3 px-4">{u.name || '-'}</td>
-                    <td className="py-3 px-4">{u.role}</td>
-                  </tr>
+                  <div key={u.id} className="p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <p className="font-semibold">{u.email}</p>
+                    <p className="text-xs text-slate-500">{u.name || '-'}</p>
+                    <p className="text-sm mt-2">{u.role}</p>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </div>

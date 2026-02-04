@@ -25,7 +25,7 @@ export default function RegisterPage() {
 
     try {
       await register(email, password, name);
-      router.push('/dashboard');
+      router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.registerFailed'));
     } finally {
@@ -36,6 +36,11 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8">
+        <div className="mb-4">
+          <Link href="/" className="text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600">
+            ← {t('results.goHome')}
+          </Link>
+        </div>
         <h1 className="text-3xl font-bold text-center mb-8">{t('auth.createAccount')}</h1>
 
         {error && (
@@ -92,7 +97,7 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <p className="text-center mt-6 text-slate-600 dark:text-slate-400">
+        <p className="text-center mt-4 text-slate-600 dark:text-slate-400">
           {t('auth.haveAccount')}{' '}
           <Link href="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
             {t('auth.loginHere')}

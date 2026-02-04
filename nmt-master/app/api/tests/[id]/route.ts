@@ -82,6 +82,16 @@ export async function PUT(
       });
 
       if (Array.isArray(body.questions)) {
+        if (body.questions.length === 0) {
+          await tx.answer.deleteMany({
+            where: { question: { testId: id } },
+          });
+          await tx.question.deleteMany({
+            where: { testId: id },
+          });
+          await tx.test.delete({ where: { id } });
+          return { deleted: true };
+        }
         await tx.answer.deleteMany({
           where: { question: { testId: id } },
         });

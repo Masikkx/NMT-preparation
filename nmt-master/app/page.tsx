@@ -3,15 +3,7 @@
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
-import { useState, useEffect } from 'react';
-
-interface Subject {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-  _count: { tests: number };
-}
+import { useState } from 'react';
 
 const SUBJECTS = [
   { id: 'ukrainian-language', nameKey: 'subjects.ukrainian', fallback: 'Ukrainian Language', icon: '🇺🇦' },
@@ -23,29 +15,11 @@ const SUBJECTS = [
 export default function Home() {
   const { user } = useAuthStore();
   const { t, translations, lang } = useLanguageStore();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   void translations;
   void lang;
 
-  useEffect(() => {
-    fetchSubjects();
-  }, []);
-
-  const fetchSubjects = async () => {
-    try {
-      const res = await fetch('/api/subjects');
-      if (res.ok) {
-        const data = await res.json();
-        setSubjects(data);
-      }
-    } catch (error) {
-      console.error('Error fetching subjects:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const rememberSubject = (subjectId: string) => {
     try {
@@ -103,14 +77,12 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {SUBJECTS.map((subject) => {
-                const subjectData = subjects.find((s) => s.slug === subject.id.toLowerCase());
-                const testCount = subjectData?._count.tests || 0;
                 const subjectLabel = t(subject.nameKey);
 
                 return (
                   <Link
                     key={subject.id}
-                    href={`/tests?subject=${subject.id}`}
+                    href={`/subject/${subject.id}`}
                     onClick={() => rememberSubject(subject.id)}
                   >
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all p-8 text-center cursor-pointer h-full flex flex-col items-center justify-center">
@@ -118,9 +90,6 @@ export default function Home() {
                       <h3 className="text-xl font-bold mb-2">
                         {subjectLabel === subject.nameKey ? subject.fallback : subjectLabel}
                       </h3>
-                      <p className="text-slate-600 dark:text-slate-400 text-sm">
-                        {testCount} {t('home.testsAvailable')}
-                      </p>
                       {user && (
                         <span className="mt-4 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg inline-flex items-center justify-center">
                           {t('home.startLearning')}
@@ -135,7 +104,7 @@ export default function Home() {
         </div>
 
         {/* Features Section */}
-        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 pb-12">
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 pb-10">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg">
             <div className="text-3xl mb-4">⏱️</div>
             <h3 className="text-xl font-bold mb-2">{t('home.realisticTiming')}</h3>
@@ -162,7 +131,7 @@ export default function Home() {
         </div>
 
         {/* Power Features */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
             <div className="text-2xl mb-3">🔥</div>
             <h3 className="text-xl font-bold mb-2">{t('home.featureStreakTitle')}</h3>
@@ -190,31 +159,6 @@ export default function Home() {
             <p className="text-slate-600 dark:text-slate-400">
               {t('home.featureFixModeDesc')}
             </p>
-          </div>
-        </div>
-
-        {/* App-Style Highlights */}
-        <div className="mt-6 rounded-2xl p-8 shadow-lg border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold">{t('home.highlightsTitle')}</h2>
-              <p className="text-slate-600 dark:text-slate-400">{t('home.highlightsSubtitle')}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { title: t('home.benefit1Title'), desc: t('home.benefit1Desc') },
-              { title: t('home.benefit2Title'), desc: t('home.benefit2Desc') },
-              { title: t('home.benefit3Title'), desc: t('home.benefit3Desc') },
-              { title: t('home.benefit4Title'), desc: t('home.benefit4Desc') },
-              { title: t('home.benefit5Title'), desc: t('home.benefit5Desc') },
-              { title: t('home.benefit6Title'), desc: t('home.benefit6Desc') },
-            ].map((b, idx) => (
-              <div key={idx} className="p-4 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60">
-                <p className="font-semibold mb-1">{b.title}</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">{b.desc}</p>
-              </div>
-            ))}
           </div>
         </div>
 

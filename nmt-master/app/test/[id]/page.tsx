@@ -146,6 +146,7 @@ export default function TestPage() {
           const data = await res.json();
           setAttemptId(data.id);
           loadAnswersFromAttempt(data);
+          restoreProgress(data.id);
           if (data.status === 'paused') {
             setPaused(true);
             await fetch(`/api/tests/${testId}/attempt`, {
@@ -163,6 +164,7 @@ export default function TestPage() {
         if (createRes.ok) {
           const created = await createRes.json();
           setAttemptId(created.id);
+          restoreProgress(created.id);
         }
       }
     } catch (error) {
@@ -187,6 +189,35 @@ export default function TestPage() {
     }
     setAnswers(restored);
   };
+
+  const restoreProgress = (id: string) => {
+    try {
+      const raw = localStorage.getItem(`attempt_progress_${id}`);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data?.answers) setAnswers(data.answers);
+      if (typeof data?.currentQuestionIndex === 'number') setCurrentQuestionIndex(data.currentQuestionIndex);
+      if (typeof data?.timeRemaining === 'number') setTimeRemaining(data.timeRemaining);
+      if (data?.checked) setChecked(data.checked);
+      if (data?.statusMap) setStatusMap(data.statusMap);
+      if (data?.correctTextMap) setCorrectTextMap(data.correctTextMap);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!attemptId) return;
+    try {
+      const payload = {
+        answers,
+        currentQuestionIndex,
+        timeRemaining,
+        checked,
+        statusMap,
+        correctTextMap,
+      };
+      localStorage.setItem(`attempt_progress_${attemptId}`, JSON.stringify(payload));
+    } catch {}
+  }, [attemptId, answers, currentQuestionIndex, timeRemaining, checked, statusMap, correctTextMap]);
 
   // Timer effect
   useEffect(() => {
@@ -331,6 +362,9 @@ export default function TestPage() {
             _maxPoints: data.meta?.maxPoints,
           };
           localStorage.setItem(`result_${data.result.id}`, JSON.stringify(payload));
+          if (attemptId) {
+            localStorage.removeItem(`attempt_progress_${attemptId}`);
+          }
         } catch {}
         router.push(`/results/${data.result.id}`);
       }
@@ -417,6 +451,41 @@ export default function TestPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-3">
+            {/* Mobile Actions */}
+            <div className="lg:hidden mb-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm font-semibold">
+                {t('test.timeRemaining')}: {formatTime(timeRemaining)}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    const next = !paused;
+                    setPaused(next);
+                    try {
+                      await fetch(`/api/tests/${testId}/attempt`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: next ? 'paused' : 'in_progress' }),
+                      });
+                    } catch {}
+                  }}
+                  className="px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-semibold transition"
+                >
+                  {paused ? t('test.resume') : t('test.pause')}
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(t('test.confirmFinish'))) {
+                      handleFinishTest();
+                    }
+                  }}
+                  disabled={submitting}
+                  className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg text-sm font-semibold transition"
+                >
+                  {submitting ? t('test.submitting') : t('test.finishTest')}
+                </button>
+              </div>
+            </div>
             {/* Top Pagination */}
             <div className="mb-4 flex flex-wrap gap-2">
               {test.questions.map((q, idx) => (
@@ -616,7 +685,7 @@ export default function TestPage() {
           </div>
 
           {/* Sidebar - Question Navigation */}
-          <div className="lg:col-span-1">
+          <div className="hidden lg:block lg:col-span-1">
             <div className="bg-white dark:bg-slate-800 rounded-lg p-5 shadow-md border border-slate-200 dark:border-slate-700 sticky top-24">
               <h3 className="text-lg font-bold mb-4">{t('test.progress')}</h3>
 
