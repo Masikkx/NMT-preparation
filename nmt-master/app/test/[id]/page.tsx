@@ -479,6 +479,14 @@ export default function TestPage() {
     return false;
   })();
 
+  const getMatchingLists = (content: string) => {
+    const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
+    const left = lines.filter((l) => /^\d+\.\s/.test(l));
+    const right = lines.filter((l) => /^[А-ЯІЇЄҐ]\.\s/.test(l));
+    const prompt = lines.filter((l) => !/^\d+\.\s/.test(l) && !/^[А-ЯІЇЄҐ]\.\s/.test(l)).join(' ');
+    return { prompt, left, right };
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
       {/* Header */}
@@ -632,6 +640,22 @@ export default function TestPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       {[0, 1, 2].map((idx) => (
+                        (() => {
+                          const correctSelectThree = currentQuestion.answers
+                            .filter((a) => a.isCorrect)
+                            .map((a) => String(a.order));
+                          const val = (answers[currentQuestion.id] || [])[idx] || '';
+                          const isChecked = !!checked[currentQuestion.id];
+                          const isCorrect = isChecked && correctSelectThree.includes(String(val));
+                          const isWrong = isChecked && val && !correctSelectThree.includes(String(val));
+                          const inputClass = isChecked
+                            ? isCorrect
+                              ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                              : isWrong
+                              ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                              : 'border-slate-300 dark:border-slate-600'
+                            : 'border-slate-300 dark:border-slate-600';
+                          return (
                         <input
                           key={idx}
                           type="number"
@@ -645,59 +669,105 @@ export default function TestPage() {
                             handleAnswerChange(currentQuestion.id, current);
                           }}
                           disabled={!!checked[currentQuestion.id]}
-                          className={`w-full px-3 py-2 border-2 rounded-lg bg-white dark:bg-slate-700 ${
-                            checked[currentQuestion.id]
-                              ? statusMap[currentQuestion.id] === 'correct'
-                                ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
-                                : statusMap[currentQuestion.id] === 'partial'
-                                ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
-                                : 'border-red-500 bg-red-50 dark:bg-red-900/30'
-                              : 'border-slate-300 dark:border-slate-600'
-                          }`}
+                          className={`w-full px-3 py-2 border-2 rounded-lg bg-white dark:bg-slate-700 ${inputClass}`}
                         />
+                          );
+                        })()
                       ))}
                     </div>
                   </div>
                 )}
                 {currentQuestion.type === 'matching' && (
-                  <div className="grid grid-cols-6 grid-rows-5 gap-0 w-64 h-56 sm:w-72 sm:h-64 max-w-full border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden">
-                    <div className="flex items-center justify-center text-sm font-semibold" />
-                    {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
-                      <div
-                        key={`head-${c}`}
-                        className="flex items-center justify-center text-sm font-semibold border-l border-slate-300 dark:border-slate-600"
-                      >
-                        {c}
-                      </div>
-                    ))}
-                    {[0, 1, 2, 3].map((row) => (
-                      <div key={`row-${row}`} className="contents">
-                        <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600">
-                          {row + 1}
+                  (() => {
+                    const { left, right } = getMatchingLists(currentQuestion.content || '');
+                    const correctMatching = currentQuestion.answers
+                      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                      .map((a) => a.matchingPair)
+                      .filter((v) => v) as string[];
+                    const cols = right.length > 0 ? right : ['А.', 'Б.', 'В.', 'Г.', 'Д.'];
+                    return (
+                      <div className="space-y-3">
+                        {(left.length > 0 || right.length > 0) && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                              <p className="font-semibold mb-2">1–4</p>
+                              <div className="space-y-1">
+                                {(left.length > 0 ? left : ['1.', '2.', '3.', '4.']).map((l, i) => (
+                                  <div key={`left-${i}`} className="text-slate-700 dark:text-slate-300">
+                                    {l}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                              <p className="font-semibold mb-2">А–Д</p>
+                              <div className="space-y-1">
+                                {cols.map((r, i) => (
+                                  <div key={`right-${i}`} className="text-slate-700 dark:text-slate-300">
+                                    {r}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-6 grid-rows-5 gap-0 w-64 h-56 sm:w-72 sm:h-64 max-w-full border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden">
+                          <div className="flex items-center justify-center text-sm font-semibold" />
+                          {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
+                            <div
+                              key={`head-${c}`}
+                              className="flex items-center justify-center text-sm font-semibold border-l border-slate-300 dark:border-slate-600"
+                            >
+                              {c}
+                            </div>
+                          ))}
+                          {[0, 1, 2, 3].map((row) => (
+                            <div key={`row-${row}`} className="contents">
+                              <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600">
+                                {row + 1}
+                              </div>
+                              {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
+                                const selected = (answers[currentQuestion.id] || [])[row];
+                                const correct = correctMatching[row];
+                                const isChecked = !!checked[currentQuestion.id];
+                                const isSelected = selected === col;
+                                const isCorrect = isChecked && isSelected && correct === col;
+                                const isWrong = isChecked && isSelected && correct !== col;
+                                const isMissed = isChecked && !isSelected && correct === col;
+                                const cellClass = isCorrect
+                                  ? 'bg-green-100 dark:bg-green-900/30'
+                                  : isWrong
+                                  ? 'bg-red-100 dark:bg-red-900/30'
+                                  : isMissed
+                                  ? 'bg-green-50 dark:bg-green-900/10'
+                                  : '';
+                                return (
+                                  <label
+                                    key={`cell-${row}-${col}`}
+                                    className={`flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600 ${cellClass}`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`match-${currentQuestion.id}-${row}`}
+                                      value={col}
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        const current = [...(answers[currentQuestion.id] || [])];
+                                        current[row] = col;
+                                        handleAnswerChange(currentQuestion.id, current);
+                                      }}
+                                      disabled={!!checked[currentQuestion.id]}
+                                      className="w-5 h-5"
+                                    />
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ))}
                         </div>
-                        {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
-                          <label
-                            key={`cell-${row}-${col}`}
-                            className="flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600"
-                          >
-                            <input
-                              type="radio"
-                              name={`match-${currentQuestion.id}-${row}`}
-                              value={col}
-                              checked={(answers[currentQuestion.id] || [])[row] === col}
-                              onChange={() => {
-                                const current = [...(answers[currentQuestion.id] || [])];
-                                current[row] = col;
-                                handleAnswerChange(currentQuestion.id, current);
-                              }}
-                              disabled={!!checked[currentQuestion.id]}
-                              className="w-5 h-5"
-                            />
-                          </label>
-                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()
                 )}
               </div>
               {currentQuestion.type === 'written' &&

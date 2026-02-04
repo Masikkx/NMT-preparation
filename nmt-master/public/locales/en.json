@@ -281,8 +281,6 @@
     "typeSelectThree": "Select 3 of 7",
     "typeMultiple": "Multiple answers"
     ,
-    "explain": "Explain mistake",
-    "explaining": "Explaining..."
   },
   "leaderboard": {
     "title": "Leaderboard",

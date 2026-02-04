@@ -31,8 +31,6 @@ export default function ResultsPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<any>(null);
-  const [explanations, setExplanations] = useState<Record<string, string>>({});
-  const [explainLoading, setExplainLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     // Note: We'll need to add an API endpoint to fetch a single result
@@ -82,6 +80,10 @@ export default function ResultsPage() {
     (result as any)?._totalQuestions || result?.totalQuestions || 0;
   const topicPoints = (result as any)?._earnedPoints;
   const topicMaxPoints = (result as any)?._maxPoints;
+  const pointsLabel =
+    typeof topicPoints === 'number' && typeof topicMaxPoints === 'number' && topicMaxPoints > 0
+      ? `${topicPoints}/${topicMaxPoints}`
+      : `${result?.correctAnswers ?? 0}/${result?.totalQuestions ?? 0}`;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -172,7 +174,7 @@ export default function ResultsPage() {
                   </div>
                   <div>
                     <p className="text-slate-600 dark:text-slate-400 text-sm">{t('results.score')}</p>
-                    <p className="font-bold text-lg">{result.rawScore}/100</p>
+                    <p className="font-bold text-lg">{pointsLabel}</p>
                   </div>
                   <div>
                     <p className="text-slate-600 dark:text-slate-400 text-sm">{t('results.questions')}</p>
@@ -234,6 +236,21 @@ export default function ResultsPage() {
               );
               const status = isCorrect ? 'correct' : partialCredit ? 'partial' : 'incorrect';
 
+              const userAnswerDisplay = (() => {
+                if (userAnswer === undefined || userAnswer === null || userAnswer === '') return '-';
+                if (q.type === 'single_choice') {
+                  const found = q.answers.find((a: any) => a.id === userAnswer);
+                  return found?.content || String(userAnswer);
+                }
+                if (q.type === 'multiple_answers') {
+                  const arr = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
+                  const texts = arr.map((id: string) => q.answers.find((a: any) => a.id === id)?.content || id);
+                  return texts.join(', ');
+                }
+                if (Array.isArray(userAnswer)) return userAnswer.join(', ');
+                return String(userAnswer);
+              })();
+
               return (
                 <div key={q.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
@@ -249,7 +266,7 @@ export default function ResultsPage() {
                     <img src={q.imageUrl} alt="question" className="mb-3 max-h-64 rounded" />
                   )}
                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {t('results.yourAnswer')}: {Array.isArray(userAnswer) ? userAnswer.join(', ') : String(userAnswer || '-')}
+                    {t('results.yourAnswer')}: {userAnswerDisplay}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
                     {t('results.correctAnswer')}: {q.type === 'matching'
@@ -259,48 +276,6 @@ export default function ResultsPage() {
                       : correctTexts.join(', ')}
                   </p>
 
-                  {status !== 'correct' && (
-                    <div className="mt-3">
-                      <button
-                        onClick={async () => {
-                          if (explanations[q.id]) return;
-                          setExplainLoading((prev) => ({ ...prev, [q.id]: true }));
-                          try {
-                            const res = await fetch('/api/ai/explain', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                subject: detail?.attempt?.test?.subject?.name,
-                                question: q.content || t('results.imageQuestion'),
-                                options: q.answers?.map((a: any) => a.content).filter(Boolean),
-                                correct: q.type === 'matching'
-                                  ? correctMatching.join(', ')
-                                  : q.type === 'select_three'
-                                  ? correctSelectThree.join(', ')
-                                  : correctTexts.join(', '),
-                                userAnswer: Array.isArray(userAnswer) ? userAnswer.join(', ') : String(userAnswer || ''),
-                              }),
-                            });
-                            if (res.ok) {
-                              const data = await res.json();
-                              setExplanations((prev) => ({ ...prev, [q.id]: data.text || '' }));
-                            }
-                          } catch {
-                          } finally {
-                            setExplainLoading((prev) => ({ ...prev, [q.id]: false }));
-                          }
-                        }}
-                        className="px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
-                      >
-                        {explainLoading[q.id] ? t('results.explaining') : t('results.explain')}
-                      </button>
-                      {explanations[q.id] && (
-                        <div className="mt-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-300">
-                          {explanations[q.id]}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
