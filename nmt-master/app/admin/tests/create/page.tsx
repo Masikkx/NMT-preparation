@@ -268,7 +268,7 @@ export default function CreateTestPage() {
 
       const isMatching = /Установіть\s+відповідність/i.test(qb.text) && leftMatchLines.length >= 4 && optionLinesRaw.length >= 4 && answerLetters.length === 4;
       const isSelectThree = answerLetters.length === 3 && !isMatching;
-      const isWritten = optionLines.length === 0 && /^\d+$/.test(ans) && testData.subject === 'mathematics';
+      const isWritten = options.length === 0 && /^\d+$/.test(ans) && testData.subject === 'mathematics';
 
       if (isWritten) {
         type = 'written';
