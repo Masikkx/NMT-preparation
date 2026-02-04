@@ -553,7 +553,7 @@ export default function TestPage() {
               </div>
             </div>
             {/* Top Pagination */}
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-wrap gap-2 lg:hidden">
               {test.questions.map((q, idx) => (
                 <button
                   key={q.id}
