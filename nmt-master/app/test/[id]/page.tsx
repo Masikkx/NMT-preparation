@@ -56,6 +56,7 @@ export default function TestPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [fixLeft, setFixLeft] = useState<number | null>(null);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -187,6 +188,9 @@ export default function TestPage() {
         }
       }
     }
+    if (Object.keys(restored).length > 0) {
+      setRestored(true);
+    }
     setAnswers(restored);
   };
 
@@ -247,6 +251,7 @@ export default function TestPage() {
       if (data?.checked) setChecked(data.checked);
       if (data?.statusMap) setStatusMap(data.statusMap);
       if (data?.correctTextMap) setCorrectTextMap(data.correctTextMap);
+      if (data?.answers || data?.checked) setRestored(true);
     } catch {}
   };
 
@@ -269,7 +274,9 @@ export default function TestPage() {
     if (!test || !attemptId) return;
     if (Object.keys(answers).length === 0) return;
     if (Object.keys(checked).length > 0) return;
+    if (!restored) return;
     rebuildCheckState(test, answers);
+    setRestored(false);
   }, [test, attemptId, answers, checked]);
 
   // Timer effect

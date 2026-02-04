@@ -143,6 +143,14 @@ export default function AdminEditTestPage() {
   const handleSave = async () => {
     const target = testRef.current ?? test;
     if (!target) return;
+    const hasDraft = currentQuestion.text.trim() !== '' || !!currentQuestion.imageUrl;
+    let nextQuestions = target.questions;
+    if (editingIndex !== null && hasDraft) {
+      nextQuestions = [...nextQuestions];
+      nextQuestions[editingIndex] = { ...currentQuestion };
+    } else if (editingIndex === null && hasDraft) {
+      nextQuestions = [...nextQuestions, { ...currentQuestion }];
+    }
     setSaving(true);
     setError('');
     try {
@@ -155,7 +163,7 @@ export default function AdminEditTestPage() {
           estimatedTime: target.estimatedTime,
           isPublished: target.isPublished,
           type: target.type,
-          questions: target.questions,
+          questions: nextQuestions,
         }),
       });
       if (!res.ok) {
