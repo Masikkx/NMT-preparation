@@ -86,7 +86,7 @@ export default function LeaderboardPage() {
                 </thead>
                 <tbody>
                   {entries.map((entry, idx) => {
-                    const isCurrentUser = user && entry.userId === user.userId;
+                    const isCurrentUser = user && entry.userId === user.id;
                     return (
                       <tr
                         key={entry.userId}

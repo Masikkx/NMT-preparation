@@ -7,7 +7,7 @@ interface Theme {
   initTheme: () => void;
 }
 
-export const useThemeStore = create<Theme>(
+export const useThemeStore = create<Theme>()(
   persist(
     (set, get) => ({
       isDark: false,

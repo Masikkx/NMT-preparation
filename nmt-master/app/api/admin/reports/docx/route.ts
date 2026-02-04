@@ -48,8 +48,9 @@ export async function GET() {
     });
 
     const buffer = await Packer.toBuffer(doc);
+    const body = new Uint8Array(buffer);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(body, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': 'attachment; filename="reports.docx"',

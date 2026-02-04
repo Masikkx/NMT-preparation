@@ -21,6 +21,7 @@ interface Answer {
   content: string;
   matchingPair?: string | null;
   order?: number;
+  isCorrect?: boolean;
 }
 
 interface Test {
@@ -28,6 +29,7 @@ interface Test {
   title: string;
   questions: Question[];
   estimatedTime: number;
+  type?: string;
 }
 
 export default function TestPage() {
