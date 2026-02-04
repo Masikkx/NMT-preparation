@@ -6,7 +6,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Вхід | TO200ZNO',
     description: 'Вхід у TO200ZNO.',
-    images: ['/og.svg'],
+    images: ['/og-sticker.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Вхід | TO200ZNO',
+    description: 'Вхід у TO200ZNO.',
+    images: ['/og-sticker.svg'],
   },
 };
 

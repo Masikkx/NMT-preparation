@@ -9,18 +9,18 @@ export const metadata: Metadata = {
     default: 'TO200ZNO',
     template: '%s | TO200ZNO',
   },
-  description: 'Підготовка до НМТ з тестами, аналітикою та розумною практикою.',
+  description: 'Підготовка до НМТ: тести, аналітика, помилки та серії.',
   metadataBase: new URL(siteUrl),
   openGraph: {
     title: 'TO200ZNO',
     description: 'Платформа підготовки до НМТ: тести, аналітика, серії та помилки.',
-    images: ['/og.svg'],
+    images: ['/og-sticker.svg'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TO200ZNO',
     description: 'Платформа підготовки до НМТ: тести, аналітика, серії та помилки.',
-    images: ['/og.svg'],
+    images: ['/og-sticker.svg'],
   },
 };
 

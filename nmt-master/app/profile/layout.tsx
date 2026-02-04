@@ -6,7 +6,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Профіль | TO200ZNO',
     description: 'Редагуй профіль та переглядай історію тестів.',
-    images: ['/og.svg'],
+    images: ['/og-sticker.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Профіль | TO200ZNO',
+    description: 'Редагуй профіль та переглядай історію тестів.',
+    images: ['/og-sticker.svg'],
   },
 };
 

@@ -8,7 +8,13 @@ export const generateMetadata = ({ params }: { params: { slug: string } }): Meta
     openGraph: {
       title: `${name} | TO200ZNO`,
       description: 'Сторінка предмету з тестами за темами, НМТ та незавершеними спробами.',
-      images: ['/og.svg'],
+      images: ['/og-sticker.svg'],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${name} | TO200ZNO`,
+      description: 'Сторінка предмету з тестами за темами, НМТ та незавершеними спробами.',
+      images: ['/og-sticker.svg'],
     },
   };
 };
