@@ -155,7 +155,8 @@
     "correct": "Correct",
     "checkAnswer": "Check Answer",
     "correctAnswer": "Correct answer",
-    "fixMode": "Fix mistakes left:"
+    "fixMode": "Fix mistakes left:",
+    "referenceMaterials": "Reference materials"
   },
   "difficulty": {
     "easy": "Easy",

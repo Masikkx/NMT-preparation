@@ -21,6 +21,7 @@ interface TestEdit {
   estimatedTime: number;
   isPublished: boolean;
   type: 'topic' | 'past_nmt';
+  subject?: { slug: string; name?: string } | null;
   questions: EditQuestion[];
 }
 
@@ -38,6 +39,10 @@ export default function AdminEditTestPage() {
   const [error, setError] = useState('');
   const [test, setTest] = useState<TestEdit | null>(null);
   const testRef = useRef<TestEdit | null>(null);
+  const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
+  const [bulkText, setBulkText] = useState('');
+  const [bulkError, setBulkError] = useState('');
+  const [bulkWarnings, setBulkWarnings] = useState<Record<number, string>>({});
   const [currentQuestion, setCurrentQuestion] = useState<EditQuestion>({
     type: 'single_choice',
     text: '',
@@ -131,6 +136,7 @@ export default function AdminEditTestPage() {
         estimatedTime: data.estimatedTime,
         isPublished: data.isPublished,
         type: data.type || 'topic',
+        subject: data.subject || null,
         questions: mappedQuestions,
       });
     } catch (err) {
@@ -141,7 +147,7 @@ export default function AdminEditTestPage() {
   };
 
   const handleSave = async () => {
-    const target = testRef.current ?? test;
+    const target = test ?? testRef.current;
     if (!target) return;
     const hasDraft = currentQuestion.text.trim() !== '' || !!currentQuestion.imageUrl;
     let nextQuestions = target.questions;
@@ -210,6 +216,7 @@ export default function AdminEditTestPage() {
       correctAnswer: 0,
       imageUrl: '',
     });
+    setInputMode('manual');
   };
 
   const removeQuestion = (index: number) => {
@@ -221,6 +228,7 @@ export default function AdminEditTestPage() {
         text: '',
         options: ['', '', '', ''],
         correctAnswer: 0,
+        imageUrl: '',
       });
     }
     const nextTest = {
@@ -245,6 +253,7 @@ export default function AdminEditTestPage() {
       correctAnswer: q.correctAnswer ?? (q.type === 'single_choice' ? 0 : ''),
       imageUrl: q.imageUrl || '',
     });
+    setInputMode('manual');
   };
 
   const cancelEdit = () => {
@@ -256,6 +265,229 @@ export default function AdminEditTestPage() {
       correctAnswer: 0,
       imageUrl: '',
     });
+    setInputMode('manual');
+  };
+
+  const parseBulkText = () => {
+    if (!test) return;
+    setBulkError('');
+    setBulkWarnings({});
+    if (editingIndex !== null) {
+      setEditingIndex(null);
+      setCurrentQuestion({
+        type: 'single_choice',
+        text: '',
+        options: ['', '', '', ''],
+        correctAnswer: 0,
+        imageUrl: '',
+      });
+    }
+    const text = bulkText.trim();
+    if (!text) {
+      setBulkError(t('adminCreateTest.bulkEmpty'));
+      return;
+    }
+
+    const normalizeInline = (input: string) =>
+      input
+        .replace(/([^\n])\s+(\d+\.)\s/g, '$1\n$2 ')
+        .replace(/([^\n])\s+([АБВГДЕЄ])\.\s/g, '$1\n$2. ');
+
+    const normalized = normalizeInline(text.replace(/\r\n/g, '\n'));
+    const parts = normalized.split(/ВІДПОВІДІ/i);
+    if (parts.length < 2) {
+      setBulkError(t('adminCreateTest.bulkNoAnswers'));
+      return;
+    }
+    const body = normalizeInline(parts[0])
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/^\d{1,6}$/.test(l))
+      .join('\n')
+      .trim();
+    const answersBlock = parts.slice(1).join(' ').trim();
+
+    const answerMap = new Map<number, string>();
+    const answerLines = answersBlock
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    for (const line of answerLines) {
+      const m = line.match(/^(\d+)\.\s*([A-Za-zА-ЯІЇЄҐ0-9]+)/);
+      if (m) {
+        answerMap.set(Number(m[1]), m[2].toUpperCase());
+      }
+    }
+
+    const questionBlocks: { id: number; text: string }[] = [];
+    const bodyLines = body
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/^\d{1,6}$/.test(l));
+    let currentId = 0;
+    let currentLines: string[] = [];
+    let inMatching = false;
+    let seenOptions = false;
+    const optionHeaderRegex = /^\s*([АБВГДЕЄ])\.\s*/;
+
+    const flushBlock = () => {
+      if (currentId > 0 && currentLines.length > 0) {
+        questionBlocks.push({
+          id: currentId,
+          text: normalizeInline(currentLines.join('\n')).trim(),
+        });
+      }
+    };
+
+    for (const line of bodyLines) {
+      const m = line.match(/^(\d+)\.\s*(.*)$/);
+      if (m) {
+        const num = Number(m[1]);
+        const isPotentialStart = num > currentId;
+        const isMatchingListItem = inMatching && num <= 4 && !seenOptions;
+        if (isPotentialStart && !isMatchingListItem) {
+          flushBlock();
+          currentId = num;
+          currentLines = [line];
+          inMatching = /Установіть\s+відповідність/i.test(line);
+          seenOptions = optionHeaderRegex.test(line);
+          continue;
+        }
+      }
+      if (currentId === 0) continue;
+      currentLines.push(line);
+      if (!inMatching && /Установіть\s+відповідність/i.test(line)) {
+        inMatching = true;
+      }
+      if (optionHeaderRegex.test(line)) {
+        seenOptions = true;
+      }
+    }
+    flushBlock();
+
+    const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
+    const subjectSlug = test.subject?.slug || '';
+
+    const parsed: EditQuestion[] = [];
+    const warnings: Record<number, string> = {};
+    for (let idx = 0; idx < questionBlocks.length; idx++) {
+      const qb = questionBlocks[idx];
+      const listIndex = idx + 1;
+      const ans = answerMap.get(qb.id) || '';
+      const lines = normalizeInline(qb.text)
+        .replace(/^\d+\.\s*/, '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l && !/^\d{1,6}$/.test(l));
+
+      const optionHeaderRegex = /^\s*([АБВГДЕЄ])\.\s*/;
+      const optionLinesRaw: string[] = [];
+      const optionLinesText: string[] = [];
+      const leftMatchLines = lines.filter((l) => /^\d+\.\s/.test(l));
+      for (const line of lines) {
+        const headerMatch = line.match(optionHeaderRegex);
+        if (headerMatch) {
+          const text = line.replace(optionHeaderRegex, '').trim();
+          optionLinesText.push(text);
+          optionLinesRaw.push(`${headerMatch[1]}. ${text}`.trim());
+        } else if (optionLinesText.length > 0 && !/^\d+\.\s/.test(line)) {
+          optionLinesText[optionLinesText.length - 1] = `${optionLinesText[optionLinesText.length - 1]} ${line}`.trim();
+          optionLinesRaw[optionLinesRaw.length - 1] = `${optionLinesRaw[optionLinesRaw.length - 1]} ${line}`.trim();
+        }
+      }
+
+      const options = optionLinesText;
+      const answerLetters = ans.replace(/[^A-ZА-ЯІЇЄҐ]/g, '').toUpperCase();
+
+      let type: EditQuestion['type'] = 'single_choice';
+      let correctAnswer: EditQuestion['correctAnswer'] = 0;
+
+      const isMatching = /Установіть\s+відповідність/i.test(qb.text) && leftMatchLines.length >= 4 && optionLinesRaw.length >= 4 && answerLetters.length === 4;
+      const isSelectThree = answerLetters.length === 3 && !isMatching;
+      const isWritten = options.length === 0 && /^\d+$/.test(ans) && subjectSlug === 'mathematics';
+
+      if (isWritten) {
+        type = 'written';
+        correctAnswer = ans;
+      } else if (isMatching) {
+        type = 'matching';
+        correctAnswer = answerLetters.slice(0, 4).split('');
+      } else if (isSelectThree) {
+        type = 'select_three';
+        const indices = answerLetters.split('').map((l) => {
+          const idx = letterOrder.indexOf(l);
+          return idx >= 0 ? String(idx + 1) : '';
+        }).filter(Boolean);
+        correctAnswer = indices;
+        if (indices.length !== 3) {
+          warnings[listIndex] = t('adminCreateTest.bulkWarnSelectThree');
+        }
+        if (options.length !== 7) {
+          warnings[listIndex] = warnings[listIndex]
+            ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnNeedSeven')}`
+            : t('adminCreateTest.bulkWarnNeedSeven');
+        }
+      } else if (options.length >= 4) {
+        type = 'single_choice';
+        const idx = letterOrder.indexOf(answerLetters[0]);
+        correctAnswer = idx >= 0 ? idx : 0;
+        if (!ans) {
+          warnings[listIndex] = t('adminCreateTest.bulkWarnNoAnswer');
+        }
+      } else if (options.length === 0) {
+        type = 'single_choice';
+        correctAnswer = 0;
+        warnings[listIndex] = t('adminCreateTest.bulkWarnNoOptions');
+      }
+
+      const questionText = (() => {
+        if (isMatching) {
+          const prompt = lines.find((l) => !/^\d+\./.test(l) && !/^[А-ЯA-Z]\./.test(l)) || '';
+          const left = leftMatchLines.join('\n');
+          const right = optionLinesRaw.join('\n');
+          return [prompt, left, right].filter(Boolean).join('\n');
+        }
+        const firstOptionIndex = lines.findIndex((l) => /^[А-ЯA-Z]\./.test(l));
+        if (firstOptionIndex === -1) return lines.join('\n');
+        return lines.slice(0, firstOptionIndex).join('\n');
+      })();
+
+      parsed.push({
+        type,
+        text: questionText,
+        options: type === 'written' || type === 'matching'
+          ? []
+          : type === 'select_three'
+          ? Array.from({ length: 7 }, (_, i) => options[i] ?? '')
+          : options.length > 0
+          ? options
+          : ['А', 'Б', 'В', 'Г'],
+        correctAnswer,
+      });
+    }
+
+    if (parsed.length === 0) {
+      setBulkError(t('adminCreateTest.bulkParseFailed'));
+      return;
+    }
+
+    const offset = test.questions.length;
+    const nextWarnings: Record<number, string> = {};
+    Object.keys(warnings).forEach((key) => {
+      const idx = Number(key);
+      if (!Number.isNaN(idx)) {
+        nextWarnings[idx + offset] = warnings[idx];
+      }
+    });
+
+    const nextTest = {
+      ...test,
+      questions: [...test.questions, ...parsed],
+    };
+    testRef.current = nextTest;
+    setTest(nextTest);
+    setBulkWarnings((prev) => ({ ...prev, ...nextWarnings }));
+    setInputMode('manual');
   };
 
   if (loading) {
@@ -358,7 +590,51 @@ export default function AdminEditTestPage() {
         <div className="mt-8 bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700">
           <h2 className="text-xl font-bold mb-4">{t('adminCreateTest.questions')} ({test.questions.length})</h2>
 
-          {editingIndex === null && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-2">{t('adminCreateTest.inputMode')}</h3>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setInputMode('manual')}
+                className={`px-3 py-2 rounded-lg border ${inputMode === 'manual' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 dark:border-slate-600'}`}
+              >
+                {t('adminCreateTest.modeManual')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('bulk')}
+                className={`px-3 py-2 rounded-lg border ${inputMode === 'bulk' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 dark:border-slate-600'}`}
+              >
+                {t('adminCreateTest.modeBulk')}
+              </button>
+            </div>
+            {inputMode === 'bulk' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">{t('adminCreateTest.bulkLabel')}</label>
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                  rows={8}
+                  placeholder={t('adminCreateTest.bulkPlaceholder')}
+                />
+                {bulkError && (
+                  <p className="text-sm text-red-600 mt-2">{bulkError}</p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={parseBulkText}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
+                  >
+                    {t('adminCreateTest.appendBulk')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {editingIndex === null && inputMode === 'manual' && (
           <div className="border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6 bg-blue-50 dark:bg-blue-900/20">
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionType')}</label>
@@ -558,7 +834,14 @@ export default function AdminEditTestPage() {
               <div key={i} className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <p className="font-medium">{t('adminCreateTest.questionLabel')} {i + 1}: {q.text.substring(0, 50)}...</p>
+                    <p className="font-medium">
+                      {t('adminCreateTest.questionLabel')} {i + 1}: {q.text.substring(0, 50)}...
+                      {bulkWarnings[i + 1] && (
+                        <span className="ml-2 text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">
+                          {bulkWarnings[i + 1]}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       {t('adminCreateTest.typeLabel')} {q.type === 'single_choice'
                         ? t('adminCreateTest.typeSingle')

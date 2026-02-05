@@ -30,6 +30,7 @@ interface Test {
   questions: Question[];
   estimatedTime: number;
   type?: string;
+  subject?: { slug: string; name?: string } | null;
 }
 
 export default function TestPage() {
@@ -536,6 +537,8 @@ export default function TestPage() {
     currentQuestion.type === 'matching'
       ? getMatchingLists(currentQuestion.content || '')
       : null;
+  const showMathMaterials = test?.subject?.slug === 'mathematics';
+  const materialsUrl = 'https://testportal.gov.ua/wp-content/uploads/2022/04/ZNO_Math_dovidkovy-materialy.pdf';
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
@@ -592,6 +595,16 @@ export default function TestPage() {
                 {t('test.timeRemaining')}: {formatTime(timeRemaining)}
               </div>
               <div className="flex gap-2">
+                {showMathMaterials && (
+                  <a
+                    href={materialsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg text-sm font-semibold transition"
+                  >
+                    {t('test.referenceMaterials')}
+                  </a>
+                )}
                 <button
                   onClick={async () => {
                     const next = !paused;
@@ -941,6 +954,16 @@ export default function TestPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-2">
+                {showMathMaterials && (
+                  <a
+                    href={materialsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg font-semibold transition text-center"
+                  >
+                    {t('test.referenceMaterials')}
+                  </a>
+                )}
                 <button
                   onClick={async () => {
                     const next = !paused;

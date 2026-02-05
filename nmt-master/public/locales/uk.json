@@ -155,7 +155,8 @@
     "correct": "Правильні",
     "checkAnswer": "Перевірити відповідь",
     "correctAnswer": "Правильна відповідь",
-    "fixMode": "Залишилось виправити:"
+    "fixMode": "Залишилось виправити:",
+    "referenceMaterials": "Довідкові матеріали"
   },
   "difficulty": {
     "easy": "Легкий",
