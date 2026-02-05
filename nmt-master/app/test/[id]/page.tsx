@@ -610,6 +610,9 @@ export default function TestPage() {
         data-question-index={idx}
         className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-6"
       >
+        <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">
+          {idx + 1}
+        </div>
         {q.content && (
           <h2 className="text-sm sm:text-base font-semibold mb-4 whitespace-pre-line">
             {q.type === 'matching'
@@ -628,21 +631,24 @@ export default function TestPage() {
           {(q.type === 'single_choice' || q.type === 'multiple_answers') && (
             <div className="space-y-4">
               <div className="space-y-1 text-sm sm:text-base">
-                {q.answers
-                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                  .map((answer, aIdx) => {
-                    const fallback = answer.content;
-                    const inlineText =
-                      inlineOptions.hasInline && inlineOptions.options[aIdx]
-                        ? inlineOptions.options[aIdx]
-                        : fallback;
-                    return (
-                    <div key={answer.id} className="flex gap-2">
-                      <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
-                      <span>{inlineText}</span>
-                    </div>
-                  );
-                  })}
+                {(() => {
+                  if (inlineOptions.hasInline) {
+                    return inlineOptions.options.map((opt, aIdx) => (
+                      <div key={`inline-${aIdx}`} className="flex gap-2">
+                        <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
+                        <span>{opt}</span>
+                      </div>
+                    ));
+                  }
+                  return q.answers
+                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                    .map((answer, aIdx) => (
+                      <div key={answer.id} className="flex gap-2">
+                        <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
+                        <span>{answer.content}</span>
+                      </div>
+                    ));
+                })()}
               </div>
               <div className="flex flex-wrap gap-3">
                 {q.answers
@@ -882,7 +888,6 @@ export default function TestPage() {
           >
             {t('test.checkAnswer')}
           </button>
-          <span className="text-sm text-slate-500 self-center">{idx + 1} / {test.questions.length}</span>
         </div>
       </div>
     );
@@ -1008,29 +1013,6 @@ export default function TestPage() {
                 </button>
               ))}
             </div>
-            <div className="mb-4 flex flex-wrap gap-2">
-              <button
-                onClick={() => setViewMode('paged')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                  viewMode === 'paged'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
-                }`}
-              >
-                По питаннях
-              </button>
-              <button
-                onClick={() => setViewMode('scroll')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                  viewMode === 'scroll'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
-                }`}
-              >
-                Скрол
-              </button>
-            </div>
-
             {viewMode === 'paged' ? (
               renderQuestionCard(currentQuestion, currentQuestionIndex)
             ) : (
@@ -1055,13 +1037,6 @@ export default function TestPage() {
                   className="px-5 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 disabled:opacity-50 rounded-lg font-semibold transition"
                 >
                   {t('test.next')} →
-                </button>
-                <button
-                  onClick={() => checkAnswerForQuestion(currentQuestion)}
-                  disabled={getCheckDisabled(currentQuestion)}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
-                >
-                  {t('test.checkAnswer')}
                 </button>
               </div>
             )}
