@@ -151,7 +151,6 @@ export default function AdminEditTestPage() {
     if (q.type === 'single_choice') {
       const imageMatch = q.text.match(/\[(?:image|img)\s*:\s*([^\]]+)\]/i);
       const imageUrl = imageMatch ? imageMatch[1].trim() : q.imageUrl || '';
-      const cleanText = q.text.replace(/\[(?:image|img)\s*:\s*[^\]]+\]/ig, '').trim();
       const inline = parseInlineOptionsFromText(q.text || '');
       const letters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
       const options = inline.hasInline
@@ -159,7 +158,7 @@ export default function AdminEditTestPage() {
         : letters.slice(0, 4);
       let correctAnswer = typeof q.correctAnswer === 'number' ? q.correctAnswer : 0;
       if (correctAnswer >= options.length) correctAnswer = 0;
-      return { ...q, text: cleanText || q.text, imageUrl, options, correctAnswer };
+      return { ...q, text: q.text, imageUrl, options, correctAnswer };
     }
     if (q.type === 'matching') {
       const subjectSlug = testRef.current?.subject?.slug || test?.subject?.slug || '';

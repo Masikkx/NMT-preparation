@@ -575,7 +575,11 @@ export default function TestPage() {
   };
 
   const parseInlineOptionsFromContent = (content: string) => {
-    const lines = content.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim());
+    const lines = content
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => !/^\[(?:image|img)\s*:\s*[^\]]+\]$/i.test(l));
     const optionRegex = /^([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s*(.+)$/;
     const options: string[] = [];
     const promptLines: string[] = [];
@@ -598,6 +602,24 @@ export default function TestPage() {
     return { hasInline, options, prompt: promptLines.join('\n').trim() };
   };
 
+  const splitContentWithImages = (content: string) => {
+    const parts: Array<{ type: 'text' | 'image'; value: string }> = [];
+    const regex = /\[(?:image|img)\s*:\s*([^\]]+)\]/gi;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      const idx = match.index;
+      const before = content.slice(lastIndex, idx);
+      if (before.trim() !== '') parts.push({ type: 'text', value: before });
+      const url = match[1]?.trim();
+      if (url) parts.push({ type: 'image', value: url });
+      lastIndex = regex.lastIndex;
+    }
+    const tail = content.slice(lastIndex);
+    if (tail.trim() !== '') parts.push({ type: 'text', value: tail });
+    return parts;
+  };
+
   const renderQuestionCard = (q: Question, idx: number) => {
     const parts = q.type === 'matching' ? getMatchingLists(q.content || '') : null;
     const inlineOptions = (q.type === 'single_choice' || q.type === 'multiple_answers')
@@ -614,37 +636,49 @@ export default function TestPage() {
           {idx + 1}
         </div>
         {q.content && (
-          <div className="text-sm sm:text-base font-semibold mb-4 whitespace-pre-line">
+          <div className="text-base sm:text-lg font-semibold mb-4 whitespace-pre-line">
             {q.type === 'matching' ? (
               parts?.prompt || q.content
             ) : inlineOptions.hasInline ? (
-              <div className="space-y-1">
-                {(q.content || '')
-                  .split('\n')
-                  .filter((l) => l.trim() !== '')
-                  .map((line, i) => {
-                    const m = line.match(/^([A-ZА-ЯІЇЄҐ])\.\s*(.+)$/);
-                    if (m) {
-                      return (
-                        <div key={`optline-${i}`} className="flex gap-2">
-                          <span className="font-semibold w-5">{m[1]}.</span>
-                          <span className="font-normal">{m[2]}</span>
-                        </div>
-                      );
-                    }
+              <div className="space-y-2">
+                {splitContentWithImages(q.content || '').map((block, i) => {
+                  if (block.type === 'image') {
                     return (
-                      <div key={`line-${i}`} className="font-normal">
-                        {line}
-                      </div>
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={`img-${i}`} src={block.value} alt="question" className="max-h-80 rounded" />
                     );
-                  })}
+                  }
+                  return (
+                    <div key={`txt-${i}`} className="space-y-1">
+                      {block.value
+                        .split('\n')
+                        .filter((l) => l.trim() !== '')
+                        .map((line, ix) => {
+                          const m = line.match(/^([A-ZА-ЯІЇЄҐ])\.\s*(.+)$/);
+                          if (m) {
+                            return (
+                              <div key={`optline-${i}-${ix}`} className="flex gap-2">
+                                <span className="font-semibold w-5">{m[1]}.</span>
+                                <span className="font-normal text-sm sm:text-base">{m[2]}</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={`line-${i}-${ix}`} className="font-semibold">
+                              {line}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               q.content
             )}
           </div>
         )}
-        {q.imageUrl && (
+        {q.imageUrl && !/\[(?:image|img)\s*:\s*[^\]]+\]/i.test(q.content || '') && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={q.imageUrl} alt="question" className="mb-4 max-h-80 rounded" />
         )}
