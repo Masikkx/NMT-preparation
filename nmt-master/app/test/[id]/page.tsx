@@ -617,8 +617,6 @@ export default function TestPage() {
           <h2 className="text-sm sm:text-base font-semibold mb-4 whitespace-pre-line">
             {q.type === 'matching'
               ? parts?.prompt || q.content
-              : inlineOptions.hasInline
-              ? inlineOptions.prompt || q.content
               : q.content}
           </h2>
         )}
@@ -630,26 +628,18 @@ export default function TestPage() {
         <div className="space-y-4 mb-6">
           {(q.type === 'single_choice' || q.type === 'multiple_answers') && (
             <div className="space-y-4">
-              <div className="space-y-1 text-sm sm:text-base">
-                {(() => {
-                  if (inlineOptions.hasInline) {
-                    return inlineOptions.options.map((opt, aIdx) => (
-                      <div key={`inline-${aIdx}`} className="flex gap-2">
-                        <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
-                        <span>{opt}</span>
-                      </div>
-                    ));
-                  }
-                  return q.answers
+              {!inlineOptions.hasInline && (
+                <div className="space-y-1 text-sm sm:text-base">
+                  {q.answers
                     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                     .map((answer, aIdx) => (
                       <div key={answer.id} className="flex gap-2">
                         <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
                         <span>{answer.content}</span>
                       </div>
-                    ));
-                })()}
-              </div>
+                    ))}
+                </div>
+              )}
               <div className="flex flex-wrap gap-3">
                 {q.answers
                   .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
@@ -1044,15 +1034,15 @@ export default function TestPage() {
 
           {/* Sidebar - Question Navigation */}
           <div className="hidden lg:block lg:col-span-1">
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-5 shadow-md border border-slate-200 dark:border-slate-700 sticky top-24">
-              <h3 className="text-lg font-bold mb-4">{t('test.progress')}</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-md border border-slate-200 dark:border-slate-700 sticky top-24">
+              <h3 className="text-base font-bold mb-3">{t('test.progress')}</h3>
 
-              <div className="mb-5">
-                <p className="text-xs font-semibold text-slate-500 mb-2">Режим перегляду</p>
+              <div className="mb-4">
+                <p className="text-[11px] font-semibold text-slate-500 mb-1">Режим перегляду</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setViewMode('paged')}
-                    className={`flex-1 px-3 py-2 rounded-full border text-xs font-semibold ${
+                    className={`flex-1 px-2 py-1.5 rounded-full border text-[11px] font-semibold ${
                       viewMode === 'paged'
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                         : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
@@ -1062,7 +1052,7 @@ export default function TestPage() {
                   </button>
                   <button
                     onClick={() => setViewMode('scroll')}
-                    className={`flex-1 px-3 py-2 rounded-full border text-xs font-semibold ${
+                    className={`flex-1 px-2 py-1.5 rounded-full border text-[11px] font-semibold ${
                       viewMode === 'scroll'
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                         : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
@@ -1074,21 +1064,21 @@ export default function TestPage() {
               </div>
 
               {/* Progress Bar */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <div className="bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-2">
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-400 text-center">
                   {currentQuestionIndex + 1} / {test.questions.length}
                 </p>
               </div>
 
               {/* Question List */}
-              <h4 className="font-semibold text-sm mb-3">{t('test.questionsLabel')}</h4>
-              <div className="grid grid-cols-6 gap-2 justify-items-center">
+              <h4 className="font-semibold text-xs mb-2">{t('test.questionsLabel')}</h4>
+              <div className="grid grid-cols-6 gap-1 justify-items-center">
                 {test.questions.map((q, idx) => (
                   <button
                     key={q.id}
@@ -1099,7 +1089,7 @@ export default function TestPage() {
                         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                       }
                     }}
-                    className={`w-8 h-8 rounded font-semibold text-sm transition ${
+                    className={`w-7 h-7 rounded font-semibold text-xs transition ${
                       idx === currentQuestionIndex
                         ? 'bg-blue-600 text-white'
                         : checked[q.id]
@@ -1116,26 +1106,26 @@ export default function TestPage() {
                 ))}
               </div>
 
-              <div className="mt-6 text-xs text-slate-600 dark:text-slate-400">
+              <div className="mt-4 text-[11px] text-slate-600 dark:text-slate-400">
                 <p>🟦 {t('test.legendCurrent')}</p>
                 <p>🟩 {t('test.legendAnswered')}</p>
                 <p>🟨 {t('test.legendPartial')}</p>
                 <p>⬜ {t('test.legendNotAnswered')}</p>
               </div>
 
-              <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg text-sm space-y-2">
+              <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg text-xs space-y-1">
                 <p><span className="font-semibold">{t('test.answered')}:</span> {answeredCount}/{test.questions.length}</p>
                 <p><span className="font-semibold">{t('test.correct')}:</span> {correctCount}</p>
                 <p><span className="font-semibold">{t('test.timeRemaining')}:</span> {formatTime(timeRemaining)}</p>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-2">
+              <div className="mt-3 grid grid-cols-1 gap-2">
                 {showMathMaterials && (
                   <a
                     href={materialsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg font-semibold transition text-center inline-flex items-center justify-center gap-2"
+                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg font-semibold transition text-center inline-flex items-center justify-center gap-2 text-xs"
                   >
                     <span className="text-lg leading-none">📃</span>
                     <span>{t('test.referenceMaterials')}</span>
@@ -1153,7 +1143,7 @@ export default function TestPage() {
                       });
                     } catch {}
                   }}
-                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-semibold transition"
+                  className="px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-semibold transition text-xs"
                 >
                   {paused ? t('test.resume') : t('test.pause')}
                 </button>
@@ -1164,7 +1154,7 @@ export default function TestPage() {
                     }
                   }}
                   disabled={submitting}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-semibold transition"
+                  className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-semibold transition text-xs"
                 >
                   {submitting ? t('test.submitting') : t('test.finishTest')}
                 </button>
