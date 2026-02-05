@@ -481,8 +481,27 @@ export default function TestPage() {
       </div>
     );
   }
+  if (!Array.isArray(test.questions) || test.questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg">{t('test.loading')}</p>
+          <p className="text-sm text-slate-500 mt-2">Немає питань у тесті</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentQuestion = test.questions[currentQuestionIndex];
+  if (!currentQuestion) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg">{t('test.loading')}</p>
+        </div>
+      </div>
+    );
+  }
   const progress = ((currentQuestionIndex + 1) / test.questions.length) * 100;
   const answeredCount = Object.keys(answers).length;
   const correctCount = test.questions.reduce((acc, q) => {
