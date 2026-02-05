@@ -19,7 +19,6 @@ interface Question {
 interface Answer {
   id: string;
   content: string;
-  imageUrl?: string | null;
   matchingPair?: string | null;
   order?: number;
   isCorrect?: boolean;
@@ -618,13 +617,7 @@ export default function TestPage() {
                           disabled={!!checked[currentQuestion.id]}
                           className="w-5 h-5 shrink-0"
                         />
-                        <span className="ml-3 flex items-center gap-3">
-                          {answer.content && <span>{answer.content}</span>}
-                          {answer.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={answer.imageUrl} alt="answer" className="h-12 w-12 rounded object-cover border border-slate-200 dark:border-slate-700" />
-                          )}
-                        </span>
+                        <span className="ml-3">{answer.content}</span>
                       </label>
                     ))}
                   </div>
@@ -657,13 +650,7 @@ export default function TestPage() {
                         .map((answer, idx) => (
                           <div key={answer.id} className="flex gap-2 items-start">
                             <span className="text-sm font-semibold w-6 text-center">{idx + 1}</span>
-                            <span className="text-sm flex items-center gap-2">
-                              {answer.content && <span>{answer.content}</span>}
-                              {answer.imageUrl && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={answer.imageUrl} alt="answer" className="h-10 w-10 rounded object-cover border border-slate-200 dark:border-slate-700" />
-                              )}
-                            </span>
+                            <span className="text-sm">{answer.content}</span>
                           </div>
                         ))}
                     </div>

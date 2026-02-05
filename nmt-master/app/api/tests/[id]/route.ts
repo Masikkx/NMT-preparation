@@ -63,13 +63,6 @@ export async function PUT(
       if (type === 'select_three') return 3;
       return 1;
     };
-    const normalizeOption = (opt: any) => {
-      if (opt && typeof opt === 'object') {
-        const text = opt.text ?? opt.content ?? '';
-        return { text: String(text), imageUrl: opt.imageUrl ?? null };
-      }
-      return { text: String(opt ?? ''), imageUrl: null };
-    };
 
     const result = await prisma.$transaction(async (tx) => {
       const test = await tx.test.update({
@@ -147,15 +140,13 @@ export async function PUT(
             }
           } else if (q.type === 'select_three') {
             const correct = Array.isArray(q.correctAnswer) ? q.correctAnswer.map(String) : [];
-            const opts = Array.isArray(q.options) ? q.options.map(normalizeOption) : [];
+            const opts = Array.isArray(q.options) ? q.options : [];
             for (let i = 1; i <= 7; i++) {
-              const opt = opts[i - 1];
               await tx.answer.create({
                 data: {
                   questionId: createdQ.id,
                   type: 'multiple',
-                  content: String(opt?.text ?? ''),
-                  imageUrl: opt?.imageUrl ?? null,
+                  content: String(opts[i - 1] ?? ''),
                   isCorrect: correct.includes(String(i)),
                   order: i,
                 },
@@ -163,7 +154,7 @@ export async function PUT(
             }
           } else if (Array.isArray(q.options) && q.options.length > 0) {
             for (let i = 0; i < q.options.length; i++) {
-              const opt = normalizeOption(q.options[i]);
+              const opt = q.options[i] ?? '';
               let isCorrect = false;
               if (q.type === 'single_choice') {
                 isCorrect = Number(q.correctAnswer) === i;
@@ -176,8 +167,7 @@ export async function PUT(
                 data: {
                   questionId: createdQ.id,
                   type: q.type === 'written' ? 'text' : q.type === 'multiple_answers' ? 'multiple' : 'single_choice',
-                  content: opt.text,
-                  imageUrl: opt.imageUrl ?? null,
+                  content: opt,
                   isCorrect,
                   order: i,
                 },

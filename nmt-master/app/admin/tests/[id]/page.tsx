@@ -6,15 +6,10 @@ import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
 import Link from 'next/link';
 
-interface OptionItem {
-  text: string;
-  imageUrl?: string;
-}
-
 interface EditQuestion {
   type: 'single_choice' | 'written' | 'matching' | 'select_three';
   text: string;
-  options?: OptionItem[];
+  options?: string[];
   correctAnswer?: number | number[] | string | string[];
   imageUrl?: string;
 }
@@ -36,7 +31,6 @@ export default function AdminEditTestPage() {
   const { t, translations, lang } = useLanguageStore();
   void translations;
   void lang;
-  const makeOptions = (count: number) => Array.from({ length: count }, () => ({ text: '', imageUrl: '' }));
 
   const testId = params.id as string;
   const [loading, setLoading] = useState(true);
@@ -47,7 +41,7 @@ export default function AdminEditTestPage() {
   const [currentQuestion, setCurrentQuestion] = useState<EditQuestion>({
     type: 'single_choice',
     text: '',
-    options: makeOptions(4),
+    options: ['', '', '', ''],
     correctAnswer: 0,
     imageUrl: '',
   });
@@ -65,25 +59,6 @@ export default function AdminEditTestPage() {
       setCurrentQuestion((prev) => ({ ...prev, imageUrl: data.url }));
     }
   };
-  const uploadOptionImage = async (file: File, optionIndex: number) => {
-    const form = new FormData();
-    form.append('file', file);
-    const res = await fetch('/api/uploads/question-image', {
-      method: 'POST',
-      body: form,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setCurrentQuestion((prev) => {
-        const nextOptions = [...(prev.options || [])];
-        if (!nextOptions[optionIndex]) {
-          nextOptions[optionIndex] = { text: '', imageUrl: '' };
-        }
-        nextOptions[optionIndex] = { ...nextOptions[optionIndex], imageUrl: data.url };
-        return { ...prev, options: nextOptions };
-      });
-    }
-  };
 
   const handlePasteImage = async (e: ClipboardEvent<HTMLDivElement>) => {
     const items = e.clipboardData?.items;
@@ -93,19 +68,6 @@ export default function AdminEditTestPage() {
         const file = item.getAsFile();
         if (file) {
           await uploadQuestionImage(file);
-          break;
-        }
-      }
-    }
-  };
-  const handlePasteOptionImage = async (e: ClipboardEvent<HTMLDivElement>, optionIndex: number) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          await uploadOptionImage(file, optionIndex);
           break;
         }
       }
@@ -156,7 +118,7 @@ export default function AdminEditTestPage() {
         return {
           type: q.type,
           text: q.content,
-          options: q.type === 'written' ? [] : options.map((a: any) => ({ text: a.content, imageUrl: a.imageUrl || '' })),
+          options: q.type === 'written' ? [] : options.map((a: any) => a.content),
           correctAnswer,
           imageUrl: q.imageUrl || '',
         };
@@ -244,7 +206,7 @@ export default function AdminEditTestPage() {
     setCurrentQuestion({
       type: 'single_choice',
       text: '',
-      options: makeOptions(4),
+      options: ['', '', '', ''],
       correctAnswer: 0,
       imageUrl: '',
     });
@@ -257,7 +219,7 @@ export default function AdminEditTestPage() {
       setCurrentQuestion({
         type: 'single_choice',
         text: '',
-        options: makeOptions(4),
+        options: ['', '', '', ''],
         correctAnswer: 0,
       });
     }
@@ -274,12 +236,12 @@ export default function AdminEditTestPage() {
     const q = test.questions[index];
     setEditingIndex(index);
     const paddedSelectThree = q.type === 'select_three'
-      ? Array.from({ length: 7 }, (_, i) => q.options?.[i] ?? { text: '', imageUrl: '' })
+      ? Array.from({ length: 7 }, (_, i) => q.options?.[i] ?? '')
       : q.options;
     setCurrentQuestion({
       type: q.type,
       text: q.text,
-      options: paddedSelectThree ? [...paddedSelectThree] : makeOptions(4),
+      options: paddedSelectThree ? [...paddedSelectThree] : ['', '', '', ''],
       correctAnswer: q.correctAnswer ?? (q.type === 'single_choice' ? 0 : ''),
       imageUrl: q.imageUrl || '',
     });
@@ -290,7 +252,7 @@ export default function AdminEditTestPage() {
     setCurrentQuestion({
       type: 'single_choice',
       text: '',
-      options: makeOptions(4),
+      options: ['', '', '', ''],
       correctAnswer: 0,
       imageUrl: '',
     });
@@ -462,13 +424,7 @@ export default function AdminEditTestPage() {
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
                 <div className="space-y-2 mb-4">
                   {currentQuestion.options?.map((option, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col gap-2 rounded-md border border-slate-200 dark:border-slate-700 p-2"
-                      onPaste={(e) => handlePasteOptionImage(e, i)}
-                      tabIndex={0}
-                    >
-                      <div className="flex items-center gap-3">
+                    <div key={i} className="flex items-center gap-3">
                       <input
                         type="radio"
                         name="single-correct-edit"
@@ -477,45 +433,15 @@ export default function AdminEditTestPage() {
                       />
                       <input
                         type="text"
-                        value={option.text}
+                        value={option}
                         onChange={(e) => {
                           const newOptions = [...(currentQuestion.options || [])];
-                          newOptions[i] = { ...newOptions[i], text: e.target.value };
+                          newOptions[i] = e.target.value;
                           setCurrentQuestion({ ...currentQuestion, options: newOptions });
                         }}
                         className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
                         placeholder={`${t('adminCreateTest.option')} ${i + 1}`}
                       />
-                      {option.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={option.imageUrl} alt={`option-${i + 1}`} className="h-10 w-10 rounded object-cover border border-slate-200 dark:border-slate-700" />
-                      )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            await uploadOptionImage(file, i);
-                          }}
-                        />
-                        <span className="text-slate-500">{t('adminCreateTest.pasteImageHint')}</span>
-                        {option.imageUrl && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newOptions = [...(currentQuestion.options || [])];
-                              newOptions[i] = { ...newOptions[i], imageUrl: '' };
-                              setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                            }}
-                            className="px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            {t('adminCreateTest.removeImage')}
-                          </button>
-                        )}
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -572,63 +498,21 @@ export default function AdminEditTestPage() {
                 <div className="space-y-2 mb-4">
                   {(currentQuestion.options && currentQuestion.options.length === 7
                     ? currentQuestion.options
-                    : Array.from({ length: 7 }, (_, i) => currentQuestion.options?.[i] || { text: '', imageUrl: '' })
+                    : Array.from({ length: 7 }, (_, i) => currentQuestion.options?.[i] || '')
                   ).map((option, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col gap-2 rounded-md border border-slate-200 dark:border-slate-700 p-2"
-                      onPaste={(e) => handlePasteOptionImage(e, i)}
-                      tabIndex={0}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm w-6 text-center">{i + 1}</span>
-                        <input
-                          type="text"
-                          value={option.text}
-                          onChange={(e) => {
-                            const newOptions = Array.from(
-                              { length: 7 },
-                              (_, idx) => currentQuestion.options?.[idx] || { text: '', imageUrl: '' }
-                            );
-                            newOptions[i] = { ...newOptions[i], text: e.target.value };
-                            setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                          }}
-                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
-                          placeholder={`${t('adminCreateTest.option')} ${i + 1}`}
-                        />
-                        {option.imageUrl && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={option.imageUrl} alt={`option-${i + 1}`} className="h-10 w-10 rounded object-cover border border-slate-200 dark:border-slate-700" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            await uploadOptionImage(file, i);
-                          }}
-                        />
-                        <span className="text-slate-500">{t('adminCreateTest.pasteImageHint')}</span>
-                        {option.imageUrl && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newOptions = Array.from(
-                                { length: 7 },
-                                (_, idx) => currentQuestion.options?.[idx] || { text: '', imageUrl: '' }
-                              );
-                              newOptions[i] = { ...newOptions[i], imageUrl: '' };
-                              setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                            }}
-                            className="px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            {t('adminCreateTest.removeImage')}
-                          </button>
-                        )}
-                      </div>
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-sm w-6 text-center">{i + 1}</span>
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = Array.from({ length: 7 }, (_, idx) => currentQuestion.options?.[idx] || '');
+                          newOptions[i] = e.target.value;
+                          setCurrentQuestion({ ...currentQuestion, options: newOptions });
+                        }}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                        placeholder={`${t('adminCreateTest.option')} ${i + 1}`}
+                      />
                     </div>
                   ))}
                 </div>
@@ -767,60 +651,24 @@ export default function AdminEditTestPage() {
                         <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
                         <div className="space-y-2 mb-4">
                           {currentQuestion.options?.map((option, idx) => (
-                            <div
-                              key={idx}
-                              className="flex flex-col gap-2 rounded-md border border-slate-200 dark:border-slate-700 p-2"
-                              onPaste={(e) => handlePasteOptionImage(e, idx)}
-                              tabIndex={0}
-                            >
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="radio"
-                                  name="single-correct-inline-edit"
-                                  checked={currentQuestion.correctAnswer === idx}
-                                  onChange={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: idx })}
-                                />
-                                <input
-                                  type="text"
-                                  value={option.text}
-                                  onChange={(e) => {
-                                    const newOptions = [...(currentQuestion.options || [])];
-                                    newOptions[idx] = { ...newOptions[idx], text: e.target.value };
-                                    setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                                  }}
-                                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
-                                  placeholder={`${t('adminCreateTest.option')} ${idx + 1}`}
-                                />
-                                {option.imageUrl && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={option.imageUrl} alt={`option-${idx + 1}`} className="h-10 w-10 rounded object-cover border border-slate-200 dark:border-slate-700" />
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    await uploadOptionImage(file, idx);
-                                  }}
-                                />
-                                <span className="text-slate-500">{t('adminCreateTest.pasteImageHint')}</span>
-                                {option.imageUrl && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newOptions = [...(currentQuestion.options || [])];
-                                      newOptions[idx] = { ...newOptions[idx], imageUrl: '' };
-                                      setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                                    }}
-                                    className="px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50"
-                                  >
-                                    {t('adminCreateTest.removeImage')}
-                                  </button>
-                                )}
-                              </div>
+                            <div key={idx} className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                name="single-correct-inline-edit"
+                                checked={currentQuestion.correctAnswer === idx}
+                                onChange={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: idx })}
+                              />
+                              <input
+                                type="text"
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...(currentQuestion.options || [])];
+                                  newOptions[idx] = e.target.value;
+                                  setCurrentQuestion({ ...currentQuestion, options: newOptions });
+                                }}
+                                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                                placeholder={`${t('adminCreateTest.option')} ${idx + 1}`}
+                              />
                             </div>
                           ))}
                         </div>
@@ -877,63 +725,21 @@ export default function AdminEditTestPage() {
                         <div className="space-y-2 mb-4">
                           {(currentQuestion.options && currentQuestion.options.length === 7
                             ? currentQuestion.options
-                            : Array.from({ length: 7 }, (_, idx) => currentQuestion.options?.[idx] || { text: '', imageUrl: '' })
+                            : Array.from({ length: 7 }, (_, idx) => currentQuestion.options?.[idx] || '')
                           ).map((option, idx) => (
-                            <div
-                              key={idx}
-                              className="flex flex-col gap-2 rounded-md border border-slate-200 dark:border-slate-700 p-2"
-                              onPaste={(e) => handlePasteOptionImage(e, idx)}
-                              tabIndex={0}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="text-sm w-6 text-center">{idx + 1}</span>
-                                <input
-                                  type="text"
-                                  value={option.text}
-                                  onChange={(e) => {
-                                    const newOptions = Array.from(
-                                      { length: 7 },
-                                      (_, ix) => currentQuestion.options?.[ix] || { text: '', imageUrl: '' }
-                                    );
-                                    newOptions[idx] = { ...newOptions[idx], text: e.target.value };
-                                    setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                                  }}
-                                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
-                                  placeholder={`${t('adminCreateTest.option')} ${idx + 1}`}
-                                />
-                                {option.imageUrl && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={option.imageUrl} alt={`option-${idx + 1}`} className="h-10 w-10 rounded object-cover border border-slate-200 dark:border-slate-700" />
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    await uploadOptionImage(file, idx);
-                                  }}
-                                />
-                                <span className="text-slate-500">{t('adminCreateTest.pasteImageHint')}</span>
-                                {option.imageUrl && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newOptions = Array.from(
-                                        { length: 7 },
-                                        (_, ix) => currentQuestion.options?.[ix] || { text: '', imageUrl: '' }
-                                      );
-                                      newOptions[idx] = { ...newOptions[idx], imageUrl: '' };
-                                      setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                                    }}
-                                    className="px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50"
-                                  >
-                                    {t('adminCreateTest.removeImage')}
-                                  </button>
-                                )}
-                              </div>
+                            <div key={idx} className="flex items-center gap-3">
+                              <span className="text-sm w-6 text-center">{idx + 1}</span>
+                              <input
+                                type="text"
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = Array.from({ length: 7 }, (_, ix) => currentQuestion.options?.[ix] || '');
+                                  newOptions[idx] = e.target.value;
+                                  setCurrentQuestion({ ...currentQuestion, options: newOptions });
+                                }}
+                                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                                placeholder={`${t('adminCreateTest.option')} ${idx + 1}`}
+                              />
                             </div>
                           ))}
                         </div>
