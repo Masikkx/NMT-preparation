@@ -49,6 +49,7 @@ export default function AdminEditTestPage() {
   const [bulkText, setBulkText] = useState('');
   const [bulkError, setBulkError] = useState('');
   const [bulkWarnings, setBulkWarnings] = useState<Record<number, string>>({});
+  const [forceSaving, setForceSaving] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<EditQuestion>({
     type: 'single_choice',
     text: '',
@@ -338,6 +339,94 @@ export default function AdminEditTestPage() {
       imageUrl: '',
     });
     setInputMode('manual');
+  };
+
+  const handleForceSave = async () => {
+    const target = testRef.current ?? test;
+    if (!target) return;
+    if (!target.title.trim()) {
+      setError(t('adminCreateTest.validationRequired'));
+      return;
+    }
+    setForceSaving(true);
+    setError('');
+    try {
+      const payloadQuestions = Array.isArray(target.questions) ? target.questions.map((q) => normalizeQuestionForSave(q)) : [];
+      const res = await fetch(`/api/tests/${target.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: target.title,
+          description: target.description,
+          estimatedTime: target.estimatedTime,
+          isPublished: target.isPublished,
+          type: target.type,
+          historyTopicCode: target.historyTopicCode || '',
+          mathTrack: target.mathTrack || '',
+          questions: payloadQuestions,
+          _force: true,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to save test');
+      }
+      try {
+        const verify = await fetch(`/api/tests/${target.id}`);
+        if (verify.ok) {
+          const fresh = await verify.json();
+          const freshCount = Array.isArray(fresh?.questions) ? fresh.questions.length : null;
+          if (freshCount !== null && freshCount !== payloadQuestions.length) {
+            setError(t('adminEditTest.saveMismatch'));
+            return;
+          }
+          const mappedQuestions: EditQuestion[] = (fresh.questions || []).map((q: any) => {
+            const options = (q.answers || []).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+            let correctAnswer: number | number[] | string | undefined = undefined;
+            if (q.type === 'single_choice') {
+              const idx = options.findIndex((a: any) => a.isCorrect);
+              correctAnswer = idx >= 0 ? idx : 0;
+            } else if (q.type === 'multiple_answers') {
+              correctAnswer = options
+                .map((a: any, i: number) => (a.isCorrect ? i : null))
+                .filter((v: number | null) => v !== null) as number[];
+            } else if (q.type === 'written') {
+              const correct = options.find((a: any) => a.isCorrect);
+              correctAnswer = correct?.content || '';
+            } else if (q.type === 'matching') {
+              correctAnswer = (options as any[]).map((a) => a.matchingPair || '');
+            } else if (q.type === 'select_three') {
+              correctAnswer = options
+                .filter((a: any) => a.isCorrect)
+                .map((a: any) => String(a.order ?? ''));
+            }
+            return {
+              type: q.type,
+              text: q.content,
+              options: q.type === 'written' ? [] : options.map((a: any) => a.content),
+              correctAnswer,
+              imageUrl: q.imageUrl || '',
+            };
+          });
+          updateTestState({
+            id: fresh.id,
+            title: fresh.title,
+            description: fresh.description,
+            estimatedTime: fresh.estimatedTime,
+            isPublished: fresh.isPublished,
+            type: fresh.type || 'topic',
+            subject: fresh.subject || null,
+            historyTopicCode: fresh.historyTopicCode || '',
+            mathTrack: fresh.mathTrack || '',
+            questions: mappedQuestions,
+          });
+        }
+      } catch {}
+      router.push('/admin/tests');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save test');
+    } finally {
+      setForceSaving(false);
+    }
   };
 
   const removeQuestion = (index: number) => {
@@ -1238,6 +1327,13 @@ export default function AdminEditTestPage() {
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg"
           >
             {saving ? t('adminEditTest.saving') : t('adminEditTest.save')}
+          </button>
+          <button
+            onClick={handleForceSave}
+            disabled={forceSaving}
+            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg"
+          >
+            {forceSaving ? t('adminEditTest.forceSaving') : t('adminEditTest.forceSave')}
           </button>
           <button
             onClick={() => router.back()}

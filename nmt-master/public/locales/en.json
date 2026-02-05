@@ -440,6 +440,8 @@
     "type": "Test Type",
     "saving": "Saving...",
     "save": "Save",
+    "forceSave": "Force Save",
+    "forceSaving": "Force saving...",
     "cancel": "Cancel",
     "editQuestion": "Edit",
     "updateQuestion": "Update Question",
