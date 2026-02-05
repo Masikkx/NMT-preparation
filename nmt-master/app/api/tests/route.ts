@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const subjectId = searchParams.get('subjectId');
     const subject = searchParams.get('subject');
     const type = searchParams.get('type');
+    const mathTrack = searchParams.get('mathTrack');
     const search = searchParams.get('search');
     const admin = searchParams.get('admin') === '1';
 
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
       if (found?.id) where.subjectId = found.id;
     }
     if (type) where.type = type;
+    if (mathTrack) where.mathTrack = mathTrack;
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -155,6 +157,8 @@ export async function POST(request: NextRequest) {
           title,
           description: body.description || null,
           type: body.type || 'topic',
+          historyTopicCode: body.historyTopicCode || null,
+          mathTrack: body.mathTrack || null,
           year: body.year || null,
           image: body.image || null,
           estimatedTime: estimatedTime,
@@ -169,13 +173,15 @@ export async function POST(request: NextRequest) {
         for (const q of body.questions) {
           order += 1;
           try {
+          const matchingLen = q.type === 'matching' && Array.isArray(q.correctAnswer) ? q.correctAnswer.length : 0;
+          const questionPoints = q.points ?? (q.type === 'matching' && matchingLen >= 3 ? matchingLen : defaultPoints(q.type));
           const createdQ = await prisma.question.create({
             data: {
               testId: test.id,
               type: q.type || 'single_choice',
               content: q.text || q.content || '',
               order,
-              points: q.points ?? defaultPoints(q.type),
+              points: questionPoints,
               imageUrl: q.imageUrl || null,
             },
           });
@@ -194,7 +200,8 @@ export async function POST(request: NextRequest) {
               }
             } else if (q.type === 'matching') {
               const mapping = Array.isArray(q.correctAnswer) ? q.correctAnswer : [];
-              for (let i = 0; i < 4; i++) {
+              const rowCount = mapping.length >= 3 ? mapping.length : 4;
+              for (let i = 0; i < rowCount; i++) {
                 await prisma.answer.create({
                   data: {
                     questionId: createdQ.id,
@@ -270,13 +277,17 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
         subject: { id: subjectId, name: body.subject || 'Unknown', slug: 'unknown' },
         topic: null,
+        historyTopicCode: body.historyTopicCode || null,
+        mathTrack: body.mathTrack || null,
         questions: (body.questions || []).map((q: any, i: number) => ({
           id: 'demo-q-' + i,
           testId: demoTestId,
           type: q.type || 'single_choice',
           content: q.text || q.content || '',
           order: i + 1,
-          points: q.points ?? defaultPoints(q.type),
+          points: q.points ?? (q.type === 'matching' && Array.isArray(q.correctAnswer) && q.correctAnswer.length >= 3
+            ? q.correctAnswer.length
+            : defaultPoints(q.type)),
         })),
       };
       return NextResponse.json(

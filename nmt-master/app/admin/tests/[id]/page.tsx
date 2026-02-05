@@ -22,6 +22,8 @@ interface TestEdit {
   isPublished: boolean;
   type: 'topic' | 'past_nmt';
   subject?: { slug: string; name?: string } | null;
+  historyTopicCode?: string | null;
+  mathTrack?: string | null;
   questions: EditQuestion[];
 }
 
@@ -77,6 +79,61 @@ export default function AdminEditTestPage() {
         }
       }
     }
+  };
+
+  const getSingleChoiceDisplayOptions = (options?: string[]) => {
+    let next = Array.isArray(options) ? [...options] : [];
+    while (next.length < 4) next.push('');
+    const firstFourFilled = next.slice(0, 4).every((o) => o.trim() !== '');
+    if (firstFourFilled && next.length === 4) next.push('');
+    if (!firstFourFilled && next.length > 4) next = next.slice(0, 4);
+    return next;
+  };
+
+  const normalizeSingleChoiceOptionsForSave = (options?: string[]) => {
+    let next = Array.isArray(options) ? [...options] : [];
+    while (next.length < 4) next.push('');
+    const firstFourFilled = next.slice(0, 4).every((o) => o.trim() !== '');
+    if (!firstFourFilled) next = next.slice(0, 4);
+    while (next.length > 4 && next[next.length - 1].trim() === '') next.pop();
+    return next;
+  };
+
+  const normalizeMatchingAnswerForSave = (answers: string[] | undefined, subjectSlug: string) => {
+    let next = Array.isArray(answers) ? [...answers] : [];
+    if (subjectSlug === 'mathematics') {
+      while (next.length > 4) next.pop();
+      while (next.length > 3 && !next[next.length - 1]) next.pop();
+      if (next.length < 3) next.length = 3;
+    } else {
+      next.length = 4;
+    }
+    return next;
+  };
+
+  const normalizeQuestionForSave = (q: EditQuestion): EditQuestion => {
+    if (q.type === 'single_choice') {
+      const options = normalizeSingleChoiceOptionsForSave(q.options);
+      let correctAnswer = typeof q.correctAnswer === 'number' ? q.correctAnswer : 0;
+      if (correctAnswer >= options.length) correctAnswer = 0;
+      return { ...q, options, correctAnswer };
+    }
+    if (q.type === 'matching') {
+      const subjectSlug = testRef.current?.subject?.slug || test?.subject?.slug || '';
+      const correctAnswer = normalizeMatchingAnswerForSave(q.correctAnswer as string[] | undefined, subjectSlug);
+      return { ...q, correctAnswer };
+    }
+    return q;
+  };
+
+  const getMatchingRowCount = (subjectSlug: string, correctAnswer?: string[]) => {
+    if (subjectSlug === 'mathematics') {
+      const arr = Array.isArray(correctAnswer) ? correctAnswer : [];
+      const hasFourth = !!arr[3];
+      const firstThreeFilled = arr.slice(0, 3).every((v) => v);
+      return hasFourth || firstThreeFilled ? 4 : 3;
+    }
+    return 4;
   };
 
   useEffect(() => {
@@ -137,6 +194,8 @@ export default function AdminEditTestPage() {
         isPublished: data.isPublished,
         type: data.type || 'topic',
         subject: data.subject || null,
+        historyTopicCode: data.historyTopicCode || '',
+        mathTrack: data.mathTrack || '',
         questions: mappedQuestions,
       });
     } catch (err) {
@@ -153,10 +212,11 @@ export default function AdminEditTestPage() {
     let nextQuestions = target.questions;
     if (editingIndex !== null && hasDraft) {
       nextQuestions = [...nextQuestions];
-      nextQuestions[editingIndex] = { ...currentQuestion };
+      nextQuestions[editingIndex] = { ...normalizeQuestionForSave(currentQuestion) };
     } else if (editingIndex === null && hasDraft) {
-      nextQuestions = [...nextQuestions, { ...currentQuestion }];
+      nextQuestions = [...nextQuestions, { ...normalizeQuestionForSave(currentQuestion) }];
     }
+    nextQuestions = nextQuestions.map((q) => normalizeQuestionForSave(q));
     setSaving(true);
     setError('');
     try {
@@ -169,6 +229,8 @@ export default function AdminEditTestPage() {
           estimatedTime: target.estimatedTime,
           isPublished: target.isPublished,
           type: target.type,
+          historyTopicCode: target.historyTopicCode || '',
+          mathTrack: target.mathTrack || '',
           questions: nextQuestions,
         }),
       });
@@ -194,9 +256,10 @@ export default function AdminEditTestPage() {
       setError(t('adminCreateTest.validationQuestion'));
       return;
     }
+    const normalized = normalizeQuestionForSave(currentQuestion);
     if (editingIndex !== null) {
       const nextQuestions = [...test.questions];
-      nextQuestions[editingIndex] = { ...currentQuestion };
+      nextQuestions[editingIndex] = { ...normalized };
       const nextTest = { ...test, questions: nextQuestions };
       testRef.current = nextTest;
       setTest(nextTest);
@@ -204,7 +267,7 @@ export default function AdminEditTestPage() {
     } else {
       const nextTest = {
         ...test,
-        questions: [...test.questions, { ...currentQuestion }],
+        questions: [...test.questions, { ...normalized }],
       };
       testRef.current = nextTest;
       setTest(nextTest);
@@ -402,7 +465,10 @@ export default function AdminEditTestPage() {
       let type: EditQuestion['type'] = 'single_choice';
       let correctAnswer: EditQuestion['correctAnswer'] = 0;
 
-      const isMatching = /Установіть\s+відповідність/i.test(qb.text) && leftMatchLines.length >= 4 && optionLinesRaw.length >= 4 && answerLetters.length === 4;
+      const isMatching = /Установіть\s+відповідність/i.test(qb.text)
+        && leftMatchLines.length >= (subjectSlug === 'mathematics' ? 3 : 4)
+        && optionLinesRaw.length >= 4
+        && (subjectSlug === 'mathematics' ? answerLetters.length >= 3 : answerLetters.length === 4);
       const isSelectThree = answerLetters.length === 3 && !isMatching;
       const isWritten = options.length === 0 && /^\d+$/.test(ans) && subjectSlug === 'mathematics';
 
@@ -411,7 +477,10 @@ export default function AdminEditTestPage() {
         correctAnswer = ans;
       } else if (isMatching) {
         type = 'matching';
-        correctAnswer = answerLetters.slice(0, 4).split('');
+        const rowCount = subjectSlug === 'mathematics'
+          ? Math.min(4, Math.max(3, answerLetters.length))
+          : 4;
+        correctAnswer = answerLetters.slice(0, rowCount).split('');
       } else if (isSelectThree) {
         type = 'select_three';
         const indices = answerLetters.split('').map((l) => {
@@ -564,6 +633,32 @@ export default function AdminEditTestPage() {
                 </button>
               </div>
             </div>
+            {test.subject?.slug === 'history-ukraine' && test.type === 'topic' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">{t('adminCreateTest.historyTopic')}</label>
+                <input
+                  type="text"
+                  value={test.historyTopicCode || ''}
+                  onChange={(e) => setTest({ ...test, historyTopicCode: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                  placeholder={t('adminCreateTest.historyTopicPlaceholder')}
+                />
+              </div>
+            )}
+            {test.subject?.slug === 'mathematics' && test.type === 'topic' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">{t('adminCreateTest.mathTrack')}</label>
+                <select
+                  value={test.mathTrack || ''}
+                  onChange={(e) => setTest({ ...test, mathTrack: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                >
+                  <option value="">{t('adminCreateTest.mathTrackAll')}</option>
+                  <option value="algebra">{t('adminCreateTest.mathTrackAlgebra')}</option>
+                  <option value="geometry">{t('adminCreateTest.mathTrackGeometry')}</option>
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium mb-2">{t('adminEditTest.timeLimit')}</label>
               <input
@@ -699,7 +794,7 @@ export default function AdminEditTestPage() {
               <>
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
                 <div className="space-y-2 mb-4">
-                  {currentQuestion.options?.map((option, i) => (
+                  {getSingleChoiceDisplayOptions(currentQuestion.options).map((option, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <input
                         type="radio"
@@ -711,7 +806,7 @@ export default function AdminEditTestPage() {
                         type="text"
                         value={option}
                         onChange={(e) => {
-                          const newOptions = [...(currentQuestion.options || [])];
+                          const newOptions = [...(getSingleChoiceDisplayOptions(currentQuestion.options) || [])];
                           newOptions[i] = e.target.value;
                           setCurrentQuestion({ ...currentQuestion, options: newOptions });
                         }}
@@ -746,7 +841,7 @@ export default function AdminEditTestPage() {
                     <div key={c} className="text-center">{c}</div>
                   ))}
                 </div>
-                {[0, 1, 2, 3].map((row) => (
+                {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
                   <div key={row} className="grid grid-cols-6 gap-2 items-center mb-2">
                     <div className="text-sm font-semibold">{row + 1}</div>
                     {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
@@ -765,6 +860,12 @@ export default function AdminEditTestPage() {
                     ))}
                   </div>
                 ))}
+                {test?.subject?.slug === 'mathematics' &&
+                  getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) === 3 && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      {t('adminCreateTest.matchingAutoRow')}
+                    </p>
+                  )}
               </div>
             )}
 
@@ -933,7 +1034,7 @@ export default function AdminEditTestPage() {
                       <>
                         <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
                         <div className="space-y-2 mb-4">
-                          {currentQuestion.options?.map((option, idx) => (
+                          {getSingleChoiceDisplayOptions(currentQuestion.options).map((option, idx) => (
                             <div key={idx} className="flex items-center gap-3">
                               <input
                                 type="radio"
@@ -945,7 +1046,7 @@ export default function AdminEditTestPage() {
                                 type="text"
                                 value={option}
                                 onChange={(e) => {
-                                  const newOptions = [...(currentQuestion.options || [])];
+                                  const newOptions = [...(getSingleChoiceDisplayOptions(currentQuestion.options) || [])];
                                   newOptions[idx] = e.target.value;
                                   setCurrentQuestion({ ...currentQuestion, options: newOptions });
                                 }}
@@ -980,7 +1081,7 @@ export default function AdminEditTestPage() {
                             <div key={c} className="text-center">{c}</div>
                           ))}
                         </div>
-                        {[0, 1, 2, 3].map((row) => (
+                        {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
                           <div key={row} className="grid grid-cols-6 gap-2 items-center mb-2">
                             <div className="text-sm font-semibold">{row + 1}</div>
                             {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
@@ -999,6 +1100,12 @@ export default function AdminEditTestPage() {
                             ))}
                           </div>
                         ))}
+                        {test?.subject?.slug === 'mathematics' &&
+                          getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) === 3 && (
+                            <p className="mt-2 text-xs text-slate-500">
+                              {t('adminCreateTest.matchingAutoRow')}
+                            </p>
+                          )}
                       </div>
                     )}
 

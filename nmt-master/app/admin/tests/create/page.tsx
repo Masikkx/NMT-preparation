@@ -2,7 +2,7 @@
 
 import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
-import { useState, type ClipboardEvent } from 'react';
+import { useEffect, useState, type ClipboardEvent } from 'react';
 import Link from 'next/link';
 import { useLanguageStore } from '@/store/language';
 
@@ -27,6 +27,8 @@ export default function CreateTestPage() {
     type: 'topic',
     timeLimit: 60,
     description: '',
+    historyTopicCode: '',
+    mathTrack: '',
   });
   const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
   const [bulkText, setBulkText] = useState('');
@@ -41,6 +43,15 @@ export default function CreateTestPage() {
     imageUrl: '',
   });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!(testData.subject === 'history-ukraine' && testData.type === 'topic') && testData.historyTopicCode) {
+      setTestData((prev) => ({ ...prev, historyTopicCode: '' }));
+    }
+    if (!(testData.subject === 'mathematics' && testData.type === 'topic') && testData.mathTrack) {
+      setTestData((prev) => ({ ...prev, mathTrack: '' }));
+    }
+  }, [testData.subject, testData.type]);
 
   const uploadQuestionImage = async (file: File) => {
     const form = new FormData();
@@ -69,6 +80,60 @@ export default function CreateTestPage() {
     }
   };
 
+  const getSingleChoiceDisplayOptions = (options?: string[]) => {
+    let next = Array.isArray(options) ? [...options] : [];
+    while (next.length < 4) next.push('');
+    const firstFourFilled = next.slice(0, 4).every((o) => o.trim() !== '');
+    if (firstFourFilled && next.length === 4) next.push('');
+    if (!firstFourFilled && next.length > 4) next = next.slice(0, 4);
+    return next;
+  };
+
+  const normalizeSingleChoiceOptionsForSave = (options?: string[]) => {
+    let next = Array.isArray(options) ? [...options] : [];
+    while (next.length < 4) next.push('');
+    const firstFourFilled = next.slice(0, 4).every((o) => o.trim() !== '');
+    if (!firstFourFilled) next = next.slice(0, 4);
+    while (next.length > 4 && next[next.length - 1].trim() === '') next.pop();
+    return next;
+  };
+
+  const normalizeMatchingAnswerForSave = (answers: string[] | undefined, subjectSlug: string) => {
+    let next = Array.isArray(answers) ? [...answers] : [];
+    if (subjectSlug === 'mathematics') {
+      while (next.length > 4) next.pop();
+      while (next.length > 3 && !next[next.length - 1]) next.pop();
+      if (next.length < 3) next.length = 3;
+    } else {
+      next.length = 4;
+    }
+    return next;
+  };
+
+  const normalizeQuestionForSave = (q: Question): Question => {
+    if (q.type === 'single_choice') {
+      const options = normalizeSingleChoiceOptionsForSave(q.options);
+      let correctAnswer = typeof q.correctAnswer === 'number' ? q.correctAnswer : 0;
+      if (correctAnswer >= options.length) correctAnswer = 0;
+      return { ...q, options, correctAnswer };
+    }
+    if (q.type === 'matching') {
+      const correctAnswer = normalizeMatchingAnswerForSave(q.correctAnswer as string[] | undefined, testData.subject);
+      return { ...q, correctAnswer };
+    }
+    return q;
+  };
+
+  const getMatchingRowCount = (subjectSlug: string, correctAnswer?: string[]) => {
+    if (subjectSlug === 'mathematics') {
+      const arr = Array.isArray(correctAnswer) ? correctAnswer : [];
+      const hasFourth = !!arr[3];
+      const firstThreeFilled = arr.slice(0, 3).every((v) => v);
+      return hasFourth || firstThreeFilled ? 4 : 3;
+    }
+    return 4;
+  };
+
   if (!user || user.role !== 'admin') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -85,13 +150,14 @@ export default function CreateTestPage() {
   }
 
   const addQuestion = () => {
+    const normalized = normalizeQuestionForSave(currentQuestion);
     if (editingIndex !== null) {
       const next = [...questions];
-      next[editingIndex] = currentQuestion;
+      next[editingIndex] = normalized;
       setQuestions(next);
       setEditingIndex(null);
     } else {
-      setQuestions([...questions, currentQuestion]);
+      setQuestions([...questions, normalized]);
     }
     setCurrentQuestion({
       type: 'single_choice',
@@ -266,7 +332,10 @@ export default function CreateTestPage() {
       let type: Question['type'] = 'single_choice';
       let correctAnswer: Question['correctAnswer'] = 0;
 
-      const isMatching = /Установіть\s+відповідність/i.test(qb.text) && leftMatchLines.length >= 4 && optionLinesRaw.length >= 4 && answerLetters.length === 4;
+      const isMatching = /Установіть\s+відповідність/i.test(qb.text)
+        && leftMatchLines.length >= (testData.subject === 'mathematics' ? 3 : 4)
+        && optionLinesRaw.length >= 4
+        && (testData.subject === 'mathematics' ? answerLetters.length >= 3 : answerLetters.length === 4);
       const isSelectThree = answerLetters.length === 3 && !isMatching;
       const isWritten = options.length === 0 && /^\d+$/.test(ans) && testData.subject === 'mathematics';
 
@@ -275,7 +344,10 @@ export default function CreateTestPage() {
         correctAnswer = ans;
       } else if (isMatching) {
         type = 'matching';
-        correctAnswer = answerLetters.slice(0, 4).split('');
+        const rowCount = testData.subject === 'mathematics'
+          ? Math.min(4, Math.max(3, answerLetters.length))
+          : 4;
+        correctAnswer = answerLetters.slice(0, rowCount).split('');
       } else if (isSelectThree) {
         type = 'select_three';
         const indices = answerLetters.split('').map((l) => {
@@ -450,6 +522,32 @@ export default function CreateTestPage() {
                 </button>
               </div>
             </div>
+            {testData.subject === 'history-ukraine' && testData.type === 'topic' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">{t('adminCreateTest.historyTopic')}</label>
+                <input
+                  type="text"
+                  value={testData.historyTopicCode}
+                  onChange={(e) => setTestData({ ...testData, historyTopicCode: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                  placeholder={t('adminCreateTest.historyTopicPlaceholder')}
+                />
+              </div>
+            )}
+            {testData.subject === 'mathematics' && testData.type === 'topic' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">{t('adminCreateTest.mathTrack')}</label>
+                <select
+                  value={testData.mathTrack}
+                  onChange={(e) => setTestData({ ...testData, mathTrack: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                >
+                  <option value="">{t('adminCreateTest.mathTrackAll')}</option>
+                  <option value="algebra">{t('adminCreateTest.mathTrackAlgebra')}</option>
+                  <option value="geometry">{t('adminCreateTest.mathTrackGeometry')}</option>
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium mb-2">{t('adminCreateTest.timeLimit')}</label>
               <input
@@ -596,7 +694,7 @@ export default function CreateTestPage() {
               <>
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
                 <div className="space-y-2 mb-4">
-                  {currentQuestion.options?.map((option, i) => (
+                  {getSingleChoiceDisplayOptions(currentQuestion.options).map((option, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <input
                         type="radio"
@@ -608,7 +706,7 @@ export default function CreateTestPage() {
                         type="text"
                         value={option}
                         onChange={(e) => {
-                          const newOptions = [...(currentQuestion.options || [])];
+                          const newOptions = [...(getSingleChoiceDisplayOptions(currentQuestion.options) || [])];
                           newOptions[i] = e.target.value;
                           setCurrentQuestion({ ...currentQuestion, options: newOptions });
                         }}
@@ -643,7 +741,7 @@ export default function CreateTestPage() {
                     <div key={c} className="text-center">{c}</div>
                   ))}
                 </div>
-                {[0, 1, 2, 3].map((row) => (
+                {Array.from({ length: getMatchingRowCount(testData.subject, currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
                   <div key={row} className="grid grid-cols-6 gap-2 items-center mb-2">
                     <div className="text-sm font-semibold">{row + 1}</div>
                     {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
@@ -662,6 +760,12 @@ export default function CreateTestPage() {
                     ))}
                   </div>
                 ))}
+                {testData.subject === 'mathematics' &&
+                  getMatchingRowCount(testData.subject, currentQuestion.correctAnswer as string[] | undefined) === 3 && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      {t('adminCreateTest.matchingAutoRow')}
+                    </p>
+                  )}
               </div>
             )}
 
@@ -831,7 +935,7 @@ export default function CreateTestPage() {
                       <>
                         <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
                         <div className="space-y-2 mb-4">
-                          {currentQuestion.options?.map((option, idx) => (
+                          {getSingleChoiceDisplayOptions(currentQuestion.options).map((option, idx) => (
                             <div key={idx} className="flex items-center gap-3">
                               <input
                                 type="radio"
@@ -843,7 +947,7 @@ export default function CreateTestPage() {
                                 type="text"
                                 value={option}
                                 onChange={(e) => {
-                                  const newOptions = [...(currentQuestion.options || [])];
+                                  const newOptions = [...(getSingleChoiceDisplayOptions(currentQuestion.options) || [])];
                                   newOptions[idx] = e.target.value;
                                   setCurrentQuestion({ ...currentQuestion, options: newOptions });
                                 }}
@@ -878,7 +982,7 @@ export default function CreateTestPage() {
                             <div key={c} className="text-center">{c}</div>
                           ))}
                         </div>
-                        {[0, 1, 2, 3].map((row) => (
+                        {Array.from({ length: getMatchingRowCount(testData.subject, currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
                           <div key={row} className="grid grid-cols-6 gap-2 items-center mb-2">
                             <div className="text-sm font-semibold">{row + 1}</div>
                             {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
@@ -897,6 +1001,12 @@ export default function CreateTestPage() {
                             ))}
                           </div>
                         ))}
+                        {testData.subject === 'mathematics' &&
+                          getMatchingRowCount(testData.subject, currentQuestion.correctAnswer as string[] | undefined) === 3 && (
+                            <p className="mt-2 text-xs text-slate-500">
+                              {t('adminCreateTest.matchingAutoRow')}
+                            </p>
+                          )}
                       </div>
                     )}
 

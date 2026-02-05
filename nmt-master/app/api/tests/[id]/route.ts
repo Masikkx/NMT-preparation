@@ -71,6 +71,8 @@ export async function PUT(
           title: body.title,
           description: body.description,
           type: body.type,
+          historyTopicCode: body.historyTopicCode || null,
+          mathTrack: body.mathTrack || null,
           image: body.image,
           estimatedTime: body.estimatedTime,
           isPublished: body.isPublished,
@@ -102,13 +104,15 @@ export async function PUT(
         let order = 0;
         for (const q of body.questions) {
           order += 1;
+          const matchingLen = q.type === 'matching' && Array.isArray(q.correctAnswer) ? q.correctAnswer.length : 0;
+          const questionPoints = q.points ?? (q.type === 'matching' && matchingLen >= 3 ? matchingLen : defaultPoints(q.type));
           const createdQ = await tx.question.create({
             data: {
               testId: id,
               type: q.type || 'single_choice',
               content: q.text || q.content || '',
               order,
-              points: q.points ?? defaultPoints(q.type),
+              points: questionPoints,
               imageUrl: q.imageUrl || null,
             },
           });
@@ -126,7 +130,8 @@ export async function PUT(
             }
           } else if (q.type === 'matching') {
             const mapping = Array.isArray(q.correctAnswer) ? q.correctAnswer : [];
-            for (let i = 0; i < 4; i++) {
+            const rowCount = mapping.length >= 3 ? mapping.length : 4;
+            for (let i = 0; i < rowCount; i++) {
               await tx.answer.create({
                 data: {
                   questionId: createdQ.id,

@@ -40,14 +40,14 @@ export async function POST(
       );
     }
 
-    const defaultPoints = (type?: string) => {
+    const defaultPoints = (type?: string, matchingCount?: number) => {
       if (type === 'written') return 2;
-      if (type === 'matching') return 4;
+      if (type === 'matching') return matchingCount && matchingCount >= 3 ? matchingCount : 4;
       if (type === 'select_three') return 3;
       return 1;
     };
-    const resolvePoints = (type?: string, stored?: number | null) => {
-      const base = defaultPoints(type);
+    const resolvePoints = (type?: string, stored?: number | null, matchingCount?: number) => {
+      const base = defaultPoints(type, matchingCount);
       if (stored === undefined || stored === null) return base;
       if (stored <= 1 && base > 1) return base;
       return stored;
@@ -62,7 +62,10 @@ export async function POST(
     for (const answer of userAnswersData) {
       const question = test.questions.find((q) => q.id === answer.questionId);
       if (!question) continue;
-      const qPoints = resolvePoints(question.type, question.points);
+      const matchingCount = question.type === 'matching'
+        ? question.answers.filter((a) => a.isCorrect).length
+        : undefined;
+      const qPoints = resolvePoints(question.type, question.points, matchingCount);
       maxPoints += qPoints;
 
       const correctAnswerIds = question.answers
@@ -76,8 +79,7 @@ export async function POST(
         .map((a) => String(a.order));
       const correctMatching = question.answers
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-        .map((a) => a.matchingPair)
-        .filter((v) => v);
+        .map((a) => a.matchingPair ?? '');
 
       const { isCorrect, partialCredit } = checkAnswer(
         question.type,

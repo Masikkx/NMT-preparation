@@ -73,6 +73,8 @@ model Test {
   title       String
   description String?
   type        String   // "topic" or "past_nmt"
+  historyTopicCode String?
+  mathTrack   String?  // "algebra" or "geometry"
   year        Int?     // For past NMT tests
   image       String?
   estimatedTime Int   @default(60) // In minutes

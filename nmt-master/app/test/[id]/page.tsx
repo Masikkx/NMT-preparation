@@ -199,8 +199,7 @@ export default function TestPage() {
       const correctAnswerTexts = q.answers.filter((a) => a.isCorrect).map((a) => a.content);
       const correctMatching = q.answers
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-        .map((a) => a.matchingPair)
-        .filter((v) => v) as string[];
+        .map((a) => a.matchingPair ?? '') as string[];
       const correctSelectThree = q.answers
         .filter((a) => a.isCorrect)
         .map((a) => String(a.order));
@@ -349,8 +348,7 @@ export default function TestPage() {
     const correctAnswerTexts = q.answers.filter((a) => a.isCorrect).map((a) => a.content);
     const correctMatching = q.answers
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map((a) => a.matchingPair)
-      .filter((v) => v) as string[];
+      .map((a) => a.matchingPair ?? '') as string[];
     const correctSelectThree = q.answers
       .filter((a) => a.isCorrect)
       .map((a) => String(a.order));
@@ -495,8 +493,7 @@ export default function TestPage() {
     const correctAnswerTexts = q.answers.filter((a) => a.isCorrect).map((a) => a.content);
     const correctMatching = q.answers
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map((a) => a.matchingPair)
-      .filter((v) => v) as string[];
+      .map((a) => a.matchingPair ?? '') as string[];
     const correctSelectThree = q.answers
       .filter((a) => a.isCorrect)
       .map((a) => String(a.order));
@@ -521,7 +518,12 @@ export default function TestPage() {
     if (q.type === 'single_choice') return !ans;
     if (q.type === 'multiple_answers') return !ans;
     if (q.type === 'select_three') return !ans || ans.filter((v: any) => String(v).trim() !== '').length < 3;
-    if (q.type === 'matching') return !ans || ans.filter((v: any) => v).length < 4;
+    if (q.type === 'matching') {
+      const requiredMatches = test.subject?.slug === 'mathematics'
+        ? Math.max(3, currentQuestion.answers.filter((a) => a.isCorrect).length || 3)
+        : 4;
+      return !ans || ans.filter((v: any) => v).length < requiredMatches;
+    }
     return false;
   })();
 
@@ -600,9 +602,11 @@ export default function TestPage() {
                     href={materialsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg text-sm font-semibold transition"
+                    className="w-10 h-10 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg text-sm font-semibold transition flex items-center justify-center"
+                    aria-label={t('test.referenceMaterials')}
+                    title={t('test.referenceMaterials')}
                   >
-                    {t('test.referenceMaterials')}
+                    <span className="text-lg leading-none">📃</span>
                   </a>
                 )}
                 <button
@@ -773,17 +777,20 @@ export default function TestPage() {
                     const { left, right } = matchingParts || { left: [], right: [] };
                     const correctMatching = currentQuestion.answers
                       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                      .map((a) => a.matchingPair)
-                      .filter((v) => v) as string[];
+                      .map((a) => a.matchingPair ?? '') as string[];
                     const cols = right.length > 0 ? right : ['А.', 'Б.', 'В.', 'Г.', 'Д.'];
+                    const rowCount = test.subject?.slug === 'mathematics'
+                      ? Math.max(3, Math.min(4, correctMatching.length || left.length || 3))
+                      : 4;
+                    const leftItems = (left.length > 0 ? left : ['1.', '2.', '3.', '4.']).slice(0, rowCount);
                     return (
                       <div className="space-y-3">
                         {(left.length > 0 || right.length > 0) && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                              <p className="font-semibold mb-2">1–4</p>
+                              <p className="font-semibold mb-2">{rowCount === 3 ? '1–3' : '1–4'}</p>
                               <div className="space-y-1">
-                                {(left.length > 0 ? left : ['1.', '2.', '3.', '4.']).map((l, i) => (
+                                {leftItems.map((l, i) => (
                                   <div key={`left-${i}`} className="text-slate-700 dark:text-slate-300">
                                     {l}
                                   </div>
@@ -802,7 +809,7 @@ export default function TestPage() {
                             </div>
                           </div>
                         )}
-                        <div className="grid grid-cols-6 grid-rows-5 gap-0 w-full max-w-[340px] aspect-[6/5] sm:w-72 sm:h-64 sm:max-w-none sm:aspect-auto border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden">
+                        <div className={`grid grid-cols-6 gap-0 w-full max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
                           <div className="flex items-center justify-center text-sm font-semibold aspect-square sm:aspect-auto" />
                           {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
                             <div
@@ -812,7 +819,7 @@ export default function TestPage() {
                               {c}
                             </div>
                           ))}
-                          {[0, 1, 2, 3].map((row) => (
+                          {Array.from({ length: rowCount }, (_, row) => row).map((row) => (
                             <div key={`row-${row}`} className="contents">
                               <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto">
                                 {row + 1}
@@ -959,9 +966,10 @@ export default function TestPage() {
                     href={materialsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg font-semibold transition text-center"
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg font-semibold transition text-center inline-flex items-center justify-center gap-2"
                   >
-                    {t('test.referenceMaterials')}
+                    <span className="text-lg leading-none">📃</span>
+                    <span>{t('test.referenceMaterials')}</span>
                   </a>
                 )}
                 <button

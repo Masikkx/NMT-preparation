@@ -14,6 +14,8 @@ interface Test {
   estimatedTime: number;
   questionCount: number;
   year?: number;
+  mathTrack?: string | null;
+  historyTopicCode?: string | null;
 }
 
 interface AttemptItem {
@@ -60,6 +62,7 @@ export default function TestsPage() {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [mathTrackFilter, setMathTrackFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState(() => {
     if (typeof window === 'undefined') return '';
     return localStorage.getItem('preferred_test_type') || '';
@@ -69,7 +72,7 @@ export default function TestsPage() {
 
   useEffect(() => {
     fetchTests();
-  }, [subjectId, searchTerm, typeFilter]);
+  }, [subjectId, searchTerm, typeFilter, mathTrackFilter]);
 
   useEffect(() => {
     if (!subjectId && typeof window !== 'undefined') {
@@ -99,6 +102,12 @@ export default function TestsPage() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (subjectId !== 'mathematics' && mathTrackFilter) {
+      setMathTrackFilter('');
+    }
+  }, [subjectId, mathTrackFilter]);
+
   const fetchTests = async () => {
     setLoading(true);
     try {
@@ -106,11 +115,23 @@ export default function TestsPage() {
       if (subjectId) params.append('subject', subjectId);
       if (searchTerm) params.append('search', searchTerm);
       if (typeFilter) params.append('type', typeFilter);
+      if (mathTrackFilter) params.append('mathTrack', mathTrackFilter);
 
       const res = await fetch(`/api/tests?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setTests(data);
+        let next = data as Test[];
+        if (subjectId === 'history-ukraine' && typeFilter === 'topic') {
+          next = [...next].sort((a, b) => {
+            const parse = (val?: string | null) => {
+              if (!val) return -Infinity;
+              const num = Number(String(val).replace(',', '.'));
+              return Number.isFinite(num) ? num : -Infinity;
+            };
+            return parse(b.historyTopicCode) - parse(a.historyTopicCode);
+          });
+        }
+        setTests(next);
       }
     } catch (error) {
       console.error('Error fetching tests:', error);
@@ -230,7 +251,7 @@ export default function TestsPage() {
 
         {/* Filters */}
         <div className="bg-white dark:bg-slate-800 rounded-lg p-6 mb-8 shadow-sm border border-slate-200 dark:border-slate-700">
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">{t('tests.search')}</label>
               <input
@@ -241,6 +262,20 @@ export default function TestsPage() {
                 className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
+            {subjectId === 'mathematics' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">{t('tests.mathTrackFilter')}</label>
+                <select
+                  value={mathTrackFilter}
+                  onChange={(e) => setMathTrackFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700"
+                >
+                  <option value="">{t('tests.mathTrackAll')}</option>
+                  <option value="algebra">{t('tests.mathTrackAlgebra')}</option>
+                  <option value="geometry">{t('tests.mathTrackGeometry')}</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
 

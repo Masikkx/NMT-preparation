@@ -54,6 +54,8 @@ export interface Test {
   title: string;
   description?: string;
   type: 'topic' | 'past_nmt';
+  historyTopicCode?: string;
+  mathTrack?: string;
   year?: number;
   image?: string;
   estimatedTime: number;
