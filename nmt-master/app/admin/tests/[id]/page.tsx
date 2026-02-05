@@ -94,6 +94,21 @@ export default function AdminEditTestPage() {
     setCurrentQuestion((prev) => ({ ...prev, text: next, imageUrl: url }));
   };
 
+  const getImageToken = (text: string) => {
+    const match = text.match(/\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/i);
+    if (!match) return null;
+    return { url: match[1].trim(), width: match[2] ? Number(match[2]) : null, full: match[0] };
+  };
+
+  const upsertImageToken = (text: string, url: string, width?: number | null) => {
+    const token = width ? `[image: ${url}|w=${width}]` : `[image: ${url}]`;
+    const existing = text.match(/\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/i);
+    if (existing) {
+      return text.replace(existing[0], token);
+    }
+    return text ? `${text}\n${token}` : token;
+  };
+
   const handlePasteImage = async (e: ClipboardEvent<HTMLDivElement | HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -975,6 +990,32 @@ export default function AdminEditTestPage() {
                   placeholder={t('adminCreateTest.questionTextPlaceholder')}
                   rows={2}
                 />
+                {(() => {
+                  const token = getImageToken(currentQuestion.text || '');
+                  if (!token?.url) return null;
+                  const width = token.width ?? 360;
+                  return (
+                    <div className="mt-3 space-y-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={token.url} alt="preview" style={{ width, maxWidth: '100%' }} className="rounded border border-slate-200 dark:border-slate-700" />
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs text-slate-500">Ширина: {width}px</label>
+                        <input
+                          type="range"
+                          min={200}
+                          max={800}
+                          step={20}
+                          value={width}
+                          onChange={(e) => {
+                            const nextWidth = Number(e.target.value);
+                            const nextText = upsertImageToken(currentQuestion.text || '', token.url, nextWidth);
+                            setCurrentQuestion({ ...currentQuestion, text: nextText, imageUrl: token.url });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
             </div>
 
             <div className="mb-4" onPaste={handlePasteImage} tabIndex={0}>

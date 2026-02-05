@@ -603,8 +603,8 @@ export default function TestPage() {
   };
 
   const splitContentWithImages = (content: string) => {
-    const parts: Array<{ type: 'text' | 'image'; value: string }> = [];
-    const regex = /\[(?:image|img)\s*:\s*([^\]]+)\]/gi;
+    const parts: Array<{ type: 'text' | 'image'; value: string; width?: number | null }> = [];
+    const regex = /\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/gi;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(content)) !== null) {
@@ -612,7 +612,8 @@ export default function TestPage() {
       const before = content.slice(lastIndex, idx);
       if (before.trim() !== '') parts.push({ type: 'text', value: before });
       const url = match[1]?.trim();
-      if (url) parts.push({ type: 'image', value: url });
+      const width = match[2] ? Number(match[2]) : null;
+      if (url) parts.push({ type: 'image', value: url, width });
       lastIndex = regex.lastIndex;
     }
     const tail = content.slice(lastIndex);
@@ -645,7 +646,13 @@ export default function TestPage() {
                   if (block.type === 'image') {
                     return (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img key={`img-${i}`} src={block.value} alt="question" className="max-h-80 rounded" />
+                      <img
+                        key={`img-${i}`}
+                        src={block.value}
+                        alt="question"
+                        className="rounded"
+                        style={{ width: block.width ? `${block.width}px` : undefined, maxWidth: '100%', height: 'auto' }}
+                      />
                     );
                   }
                   return (
