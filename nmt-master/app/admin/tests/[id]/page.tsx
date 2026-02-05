@@ -208,12 +208,50 @@ export default function AdminEditTestPage() {
   const handleSave = async () => {
     const target = test ?? testRef.current;
     if (!target) return;
-    const hasDraft = currentQuestion.text.trim() !== '' || !!currentQuestion.imageUrl;
     let nextQuestions = target.questions;
-    if (editingIndex !== null && hasDraft) {
+    if (editingIndex !== null) {
+      if (!currentQuestion.text.trim() && !currentQuestion.imageUrl) {
+        setError(t('adminCreateTest.validationQuestion'));
+        return;
+      }
       nextQuestions = [...nextQuestions];
       nextQuestions[editingIndex] = { ...normalizeQuestionForSave(currentQuestion) };
-    } else if (editingIndex === null && hasDraft) {
+    } else if (editingIndex === null) {
+      const hasDraft = currentQuestion.text.trim() !== '' || !!currentQuestion.imageUrl;
+      if (!hasDraft) {
+        setSaving(true);
+        setError('');
+        try {
+          const res = await fetch(`/api/tests/${target.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: target.title,
+              description: target.description,
+              estimatedTime: target.estimatedTime,
+              isPublished: target.isPublished,
+              type: target.type,
+              historyTopicCode: target.historyTopicCode || '',
+              mathTrack: target.mathTrack || '',
+              questions: nextQuestions.map((q) => normalizeQuestionForSave(q)),
+            }),
+          });
+          if (!res.ok) {
+            throw new Error('Failed to save test');
+          }
+          const payload = await res.json().catch(() => null);
+          if (payload?.deleted) {
+            router.push('/admin/tests');
+            return;
+          }
+          router.push('/admin/tests');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to save test');
+        } finally {
+          setSaving(false);
+        }
+        return;
+      }
       nextQuestions = [...nextQuestions, { ...normalizeQuestionForSave(currentQuestion) }];
     }
     nextQuestions = nextQuestions.map((q) => normalizeQuestionForSave(q));
