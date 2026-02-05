@@ -767,24 +767,60 @@ export default function AdminEditTestPage() {
                         <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
                         <div className="space-y-2 mb-4">
                           {currentQuestion.options?.map((option, idx) => (
-                            <div key={idx} className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name="single-correct-inline-edit"
-                                checked={currentQuestion.correctAnswer === idx}
-                                onChange={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: idx })}
-                              />
-                              <input
-                                type="text"
-                                value={option}
-                                onChange={(e) => {
-                                  const newOptions = [...(currentQuestion.options || [])];
-                                  newOptions[idx] = e.target.value;
-                                  setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                                }}
-                                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
-                                placeholder={`${t('adminCreateTest.option')} ${idx + 1}`}
-                              />
+                            <div
+                              key={idx}
+                              className="flex flex-col gap-2 rounded-md border border-slate-200 dark:border-slate-700 p-2"
+                              onPaste={(e) => handlePasteOptionImage(e, idx)}
+                              tabIndex={0}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  name="single-correct-inline-edit"
+                                  checked={currentQuestion.correctAnswer === idx}
+                                  onChange={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: idx })}
+                                />
+                                <input
+                                  type="text"
+                                  value={option.text}
+                                  onChange={(e) => {
+                                    const newOptions = [...(currentQuestion.options || [])];
+                                    newOptions[idx] = { ...newOptions[idx], text: e.target.value };
+                                    setCurrentQuestion({ ...currentQuestion, options: newOptions });
+                                  }}
+                                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                                  placeholder={`${t('adminCreateTest.option')} ${idx + 1}`}
+                                />
+                                {option.imageUrl && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={option.imageUrl} alt={`option-${idx + 1}`} className="h-10 w-10 rounded object-cover border border-slate-200 dark:border-slate-700" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    await uploadOptionImage(file, idx);
+                                  }}
+                                />
+                                <span className="text-slate-500">{t('adminCreateTest.pasteImageHint')}</span>
+                                {option.imageUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newOptions = [...(currentQuestion.options || [])];
+                                      newOptions[idx] = { ...newOptions[idx], imageUrl: '' };
+                                      setCurrentQuestion({ ...currentQuestion, options: newOptions });
+                                    }}
+                                    className="px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50"
+                                  >
+                                    {t('adminCreateTest.removeImage')}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
