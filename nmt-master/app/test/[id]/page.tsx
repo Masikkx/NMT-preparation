@@ -526,6 +526,26 @@ export default function TestPage() {
   };
   const optionLetters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
 
+  useEffect(() => {
+    if (viewMode !== 'scroll') return;
+    const elements = Array.from(document.querySelectorAll('[data-question-index]')) as HTMLElement[];
+    if (elements.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => (b.intersectionRatio - a.intersectionRatio));
+        if (visible.length === 0) return;
+        const top = visible[0].target as HTMLElement;
+        const idx = Number(top.dataset.questionIndex);
+        if (!Number.isNaN(idx)) setCurrentQuestionIndex(idx);
+      },
+      { rootMargin: '-20% 0px -60% 0px', threshold: [0.1, 0.25, 0.5, 0.75] }
+    );
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [viewMode, test?.questions.length]);
+
   const getMatchingLists = (content: string) => {
     const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
     const left = lines.filter((l) => /^\d+\.\s/.test(l));
@@ -534,18 +554,48 @@ export default function TestPage() {
     return { prompt, left, right };
   };
 
+  const parseInlineOptionsFromContent = (content: string) => {
+    const lines = content.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim());
+    const optionRegex = /^([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s*(.+)$/;
+    const options: string[] = [];
+    const promptLines: string[] = [];
+    let lastOption = -1;
+    for (const line of lines) {
+      if (!line) continue;
+      const m = line.match(optionRegex);
+      if (m) {
+        options.push(m[2].trim());
+        lastOption = options.length - 1;
+        continue;
+      }
+      if (lastOption >= 0) {
+        options[lastOption] = `${options[lastOption]} ${line}`.trim();
+      } else {
+        promptLines.push(line);
+      }
+    }
+    const hasInline = options.length >= 4;
+    return { hasInline, options, prompt: promptLines.join('\n').trim() };
+  };
+
   const renderQuestionCard = (q: Question, idx: number) => {
     const parts = q.type === 'matching' ? getMatchingLists(q.content || '') : null;
+    const inlineOptions = (q.type === 'single_choice' || q.type === 'multiple_answers')
+      ? parseInlineOptionsFromContent(q.content || '')
+      : { hasInline: false, options: [], prompt: q.content || '' };
     return (
       <div
         key={q.id}
         id={`q-${q.id}`}
+        data-question-index={idx}
         className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-6"
       >
         {q.content && (
-          <h2 className="text-base sm:text-lg font-semibold mb-4 whitespace-pre-line">
+          <h2 className="text-sm sm:text-base font-semibold mb-4 whitespace-pre-line">
             {q.type === 'matching'
               ? parts?.prompt || q.content
+              : inlineOptions.hasInline
+              ? inlineOptions.prompt || q.content
               : q.content}
           </h2>
         )}
@@ -556,51 +606,48 @@ export default function TestPage() {
 
         <div className="space-y-4 mb-6">
           {(q.type === 'single_choice' || q.type === 'multiple_answers') && (
-            <div className="space-y-3">
-              {q.answers
-                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((answer, aIdx) => {
-                  const isMulti = q.type === 'multiple_answers';
-                  const selected = isMulti
-                    ? Array.isArray(answers[q.id]) &&
-                      (answers[q.id] as string[]).includes(answer.id)
-                    : answers[q.id] === answer.id;
-                  const isChecked = !!checked[q.id];
-                  const isCorrect = isChecked && !!answer.isCorrect;
-                  const isWrong = isChecked && selected && !answer.isCorrect;
-                  const isMissed = isChecked && !selected && !!answer.isCorrect;
-                  const borderClass = isCorrect
-                    ? 'border-green-500'
-                    : isWrong
-                    ? 'border-red-500'
-                    : isMissed
-                    ? 'border-amber-400'
-                    : 'border-slate-300 dark:border-slate-600';
-                  const bgClass = isCorrect
-                    ? 'bg-green-50 dark:bg-green-900/30'
-                    : isWrong
-                    ? 'bg-red-50 dark:bg-red-900/30'
-                    : isMissed
-                    ? 'bg-amber-50 dark:bg-amber-900/20'
-                    : 'bg-white dark:bg-slate-800';
-                  const badgeClass = isCorrect
-                    ? 'bg-green-600 text-white border-green-600'
-                    : isWrong
-                    ? 'bg-red-600 text-white border-red-600'
-                    : selected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600';
-                  return (
-                    <label
-                      key={answer.id}
-                      className={`flex items-start gap-3 p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition hover:border-blue-300 dark:hover:border-blue-500 ${borderClass} ${bgClass}`}
-                    >
-                      <input
-                        type={isMulti ? 'checkbox' : 'radio'}
-                        name={q.id}
-                        value={answer.id}
-                        checked={selected}
-                        onChange={() => {
+            <div className="space-y-4">
+              <div className="space-y-1 text-sm sm:text-base">
+                {q.answers
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map((answer, aIdx) => {
+                    const fallback = answer.content;
+                    const inlineText =
+                      inlineOptions.hasInline && inlineOptions.options[aIdx]
+                        ? inlineOptions.options[aIdx]
+                        : fallback;
+                    return (
+                    <div key={answer.id} className="flex gap-2">
+                      <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
+                      <span>{inlineText}</span>
+                    </div>
+                  );
+                  })}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {q.answers
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map((answer, aIdx) => {
+                    const isMulti = q.type === 'multiple_answers';
+                    const selected = isMulti
+                      ? Array.isArray(answers[q.id]) &&
+                        (answers[q.id] as string[]).includes(answer.id)
+                      : answers[q.id] === answer.id;
+                    const isChecked = !!checked[q.id];
+                    const isCorrect = isChecked && !!answer.isCorrect;
+                    const isWrong = isChecked && selected && !answer.isCorrect;
+                    const badgeClass = isCorrect
+                      ? 'border-green-500 text-green-700 bg-green-50 dark:bg-green-900/30'
+                      : isWrong
+                      ? 'border-red-500 text-red-700 bg-red-50 dark:bg-red-900/30'
+                      : selected
+                      ? 'border-blue-500 text-blue-700 bg-blue-50 dark:bg-blue-900/30'
+                      : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200';
+                    return (
+                      <button
+                        key={answer.id}
+                        type="button"
+                        onClick={() => {
                           if (isMulti) {
                             const current = Array.isArray(answers[q.id])
                               ? (answers[q.id] as string[])
@@ -614,17 +661,14 @@ export default function TestPage() {
                           }
                         }}
                         disabled={!!checked[q.id]}
-                        className="sr-only"
-                      />
-                      <span
-                        className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-bold ${badgeClass}`}
+                        className={`h-10 w-10 rounded-lg border-2 font-bold transition ${badgeClass}`}
+                        aria-pressed={selected}
                       >
                         {optionLetters[aIdx] || String(aIdx + 1)}
-                      </span>
-                      <span className="text-base leading-relaxed">{answer.content}</span>
-                    </label>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
           )}
 
@@ -736,7 +780,7 @@ export default function TestPage() {
                       </div>
                     </div>
                   )}
-                  <div className={`grid grid-cols-6 gap-0 w-full max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
+                  <div className={`grid grid-cols-6 gap-0 w-full max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
                     <div className="flex items-center justify-center text-sm font-semibold aspect-square sm:aspect-auto" />
                     {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
                       <div
@@ -771,19 +815,23 @@ export default function TestPage() {
                               key={`cell-${row}-${col}`}
                               className={`flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto ${cellClass}`}
                             >
-                              <input
-                                type="radio"
-                                name={`match-${q.id}-${row}`}
-                                value={col}
-                                checked={isSelected}
-                                onChange={() => {
+                              <button
+                                type="button"
+                                onClick={() => {
                                   const current = [...(answers[q.id] || [])];
                                   current[row] = col;
                                   handleAnswerChange(q.id, current);
                                 }}
                                 disabled={!!checked[q.id]}
-                                className="w-5 h-5"
-                              />
+                                className={`h-10 w-10 rounded-lg border-2 font-bold transition ${
+                                  isSelected
+                                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                    : 'border-slate-300 dark:border-slate-600'
+                                }`}
+                                aria-pressed={isSelected}
+                              >
+                                <span className="sr-only">{col}</span>
+                              </button>
                             </label>
                           );
                         })}
@@ -940,6 +988,29 @@ export default function TestPage() {
                 </button>
               ))}
             </div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => setViewMode('paged')}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                  viewMode === 'paged'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                }`}
+              >
+                По питаннях
+              </button>
+              <button
+                onClick={() => setViewMode('scroll')}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                  viewMode === 'scroll'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                }`}
+              >
+                Скрол
+              </button>
+            </div>
+
             {viewMode === 'paged' ? (
               renderQuestionCard(currentQuestion, currentQuestionIndex)
             ) : (
@@ -986,20 +1057,20 @@ export default function TestPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setViewMode('paged')}
-                    className={`flex-1 px-3 py-2 rounded-lg border text-sm font-semibold ${
+                    className={`flex-1 px-3 py-2 rounded-full border text-xs font-semibold ${
                       viewMode === 'paged'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'border-slate-300 dark:border-slate-600'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
                     }`}
                   >
                     По питаннях
                   </button>
                   <button
                     onClick={() => setViewMode('scroll')}
-                    className={`flex-1 px-3 py-2 rounded-lg border text-sm font-semibold ${
+                    className={`flex-1 px-3 py-2 rounded-full border text-xs font-semibold ${
                       viewMode === 'scroll'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'border-slate-300 dark:border-slate-600'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
                     }`}
                   >
                     Скрол

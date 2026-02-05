@@ -58,6 +58,7 @@ export default function AdminEditTestPage() {
     imageUrl: '',
   });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const questionTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   const uploadQuestionImage = async (file: File) => {
     const form = new FormData();
@@ -69,39 +70,44 @@ export default function AdminEditTestPage() {
     if (res.ok) {
       const data = await res.json();
       setCurrentQuestion((prev) => ({ ...prev, imageUrl: data.url }));
+      return data.url as string;
     }
+    return '';
   };
 
-  const handlePasteImage = async (e: ClipboardEvent<HTMLDivElement>) => {
+  const insertImageToken = (url: string) => {
+    if (!url) return;
+    const token = `[image: ${url}]`;
+    const text = currentQuestion.text || '';
+    const el = questionTextRef.current;
+    if (!el) {
+      setCurrentQuestion((prev) => ({ ...prev, text: text ? `${text}\n${token}` : token }));
+      return;
+    }
+    const start = el.selectionStart ?? text.length;
+    const end = el.selectionEnd ?? text.length;
+    const before = text.slice(0, start);
+    const after = text.slice(end);
+    const needsLead = before && !before.endsWith('\n') ? '\n' : '';
+    const needsTrail = after && !after.startsWith('\n') ? '\n' : '';
+    const next = `${before}${needsLead}${token}${needsTrail}${after}`;
+    setCurrentQuestion((prev) => ({ ...prev, text: next, imageUrl: url }));
+  };
+
+  const handlePasteImage = async (e: ClipboardEvent<HTMLDivElement | HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) {
-          await uploadQuestionImage(file);
+          e.preventDefault();
+          const url = await uploadQuestionImage(file);
+          if (url) insertImageToken(url);
           break;
         }
       }
     }
-  };
-
-  const getSingleChoiceDisplayOptions = (options?: string[]) => {
-    let next = Array.isArray(options) ? [...options] : [];
-    while (next.length < 4) next.push('');
-    const firstFourFilled = next.slice(0, 4).every((o) => o.trim() !== '');
-    if (firstFourFilled && next.length === 4) next.push('');
-    if (!firstFourFilled && next.length > 4) next = next.slice(0, 4);
-    return next;
-  };
-
-  const normalizeSingleChoiceOptionsForSave = (options?: string[]) => {
-    let next = Array.isArray(options) ? [...options] : [];
-    while (next.length < 4) next.push('');
-    const firstFourFilled = next.slice(0, 4).every((o) => o.trim() !== '');
-    if (!firstFourFilled) next = next.slice(0, 4);
-    while (next.length > 4 && next[next.length - 1].trim() === '') next.pop();
-    return next;
   };
 
   const normalizeMatchingAnswerForSave = (answers: string[] | undefined, subjectSlug: string) => {
@@ -116,12 +122,44 @@ export default function AdminEditTestPage() {
     return next;
   };
 
+  const parseInlineOptionsFromText = (text: string) => {
+    const lines = text.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim());
+    const optionRegex = /^([A-ZА-ЯІЇЄҐ])(?:[.)]|:)\s*(.+)$/;
+    const options: string[] = [];
+    const promptLines: string[] = [];
+    let lastOption = -1;
+    for (const line of lines) {
+      if (!line) continue;
+      const m = line.match(optionRegex);
+      if (m) {
+        options.push(m[2].trim());
+        lastOption = options.length - 1;
+        continue;
+      }
+      if (lastOption >= 0) {
+        options[lastOption] = `${options[lastOption]} ${line}`.trim();
+      } else {
+        promptLines.push(line);
+      }
+    }
+    const limited = options.slice(0, 5);
+    const hasInline = limited.length >= 4;
+    return { hasInline, options: limited, prompt: promptLines.join('\n').trim() };
+  };
+
   const normalizeQuestionForSave = (q: EditQuestion): EditQuestion => {
     if (q.type === 'single_choice') {
-      const options = normalizeSingleChoiceOptionsForSave(q.options);
+      const imageMatch = q.text.match(/\[(?:image|img)\s*:\s*([^\]]+)\]/i);
+      const imageUrl = imageMatch ? imageMatch[1].trim() : q.imageUrl || '';
+      const cleanText = q.text.replace(/\[(?:image|img)\s*:\s*[^\]]+\]/ig, '').trim();
+      const inline = parseInlineOptionsFromText(q.text || '');
+      const letters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
+      const options = inline.hasInline
+        ? inline.options.map((_, idx) => letters[idx] || String(idx + 1))
+        : letters.slice(0, 4);
       let correctAnswer = typeof q.correctAnswer === 'number' ? q.correctAnswer : 0;
       if (correctAnswer >= options.length) correctAnswer = 0;
-      return { ...q, options, correctAnswer };
+      return { ...q, text: cleanText || q.text, imageUrl, options, correctAnswer };
     }
     if (q.type === 'matching') {
       const subjectSlug = testRef.current?.subject?.slug || test?.subject?.slug || '';
@@ -462,7 +500,7 @@ export default function AdminEditTestPage() {
     const normalizeInline = (input: string) =>
       input
         .replace(/([^\n])\s+(\d+\.)\s/g, '$1\n$2 ')
-        .replace(/([^\n])\s+([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s/g, '$1\n$2. ');
+        .replace(/([^\n])\s+([A-ZА-ЯІЇЄҐ])([.)]|:)\s/g, '$1\n$2$3 ');
 
     const normalizeBulkInput = (input: string) => {
       const raw = input.replace(/\r\n/g, '\n').replace(/\u00A0/g, ' ');
@@ -531,7 +569,7 @@ export default function AdminEditTestPage() {
     let currentLines: string[] = [];
     let inMatching = false;
     let seenOptions = false;
-    const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s*/;
+    const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)\s*/;
 
     const flushBlock = () => {
       if (currentId > 0 && currentLines.length > 0) {
@@ -579,13 +617,16 @@ export default function AdminEditTestPage() {
       const qb = questionBlocks[idx];
       const listIndex = idx + 1;
       const ans = answerMap.get(qb.id) || '';
-      const lines = normalizeInline(qb.text)
+      const imageMatch = qb.text.match(/\[(?:image|img)\s*:\s*([^\]]+)\]/i);
+      const imageUrl = imageMatch ? imageMatch[1].trim() : '';
+      const cleanedText = qb.text.replace(/\[(?:image|img)\s*:\s*[^\]]+\]/ig, '').trim();
+      const lines = normalizeInline(cleanedText)
         .replace(/^\d+\.\s*/, '')
         .split('\n')
         .map((l) => l.trim())
         .filter((l) => l && !/^\d{1,6}$/.test(l));
 
-      const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s*/;
+      const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)\s*/;
       const optionLinesRaw: string[] = [];
       const optionLinesText: string[] = [];
       const leftMatchLines = lines.filter((l) => /^\d+\.\s/.test(l));
@@ -655,6 +696,16 @@ export default function AdminEditTestPage() {
         correctAnswer = 0;
         warnings[listIndex] = t('adminCreateTest.bulkWarnNoOptions');
       }
+      if (type === 'single_choice' && optionLinesText.length > 5) {
+        warnings[listIndex] = warnings[listIndex]
+          ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnTooManyOptions')}`
+          : t('adminCreateTest.bulkWarnTooManyOptions');
+      }
+      if (optionLinesRaw.length > 5) {
+        warnings[listIndex] = warnings[listIndex]
+          ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnTooManyOptions')}`
+          : t('adminCreateTest.bulkWarnTooManyOptions');
+      }
       if (sequenceHint && !isSequence) {
         warnings[listIndex] = warnings[listIndex]
           ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnSequence')}`
@@ -675,16 +726,24 @@ export default function AdminEditTestPage() {
         }
         const firstOptionIndex = lines.findIndex((l) => /^[А-ЯA-Z]\./.test(l));
         if (firstOptionIndex === -1) return lines.join('\n');
+        if (type === 'single_choice' && optionLinesRaw.length > 0) {
+          return [lines.slice(0, firstOptionIndex).join('\n'), optionLinesRaw.join('\n')]
+            .filter(Boolean)
+            .join('\n\n');
+        }
         return lines.slice(0, firstOptionIndex).join('\n');
       })();
 
       parsed.push({
         type,
         text: questionText,
+        imageUrl,
         options: type === 'written' || type === 'matching'
           ? []
           : type === 'select_three'
           ? Array.from({ length: 7 }, (_, i) => options[i] ?? '')
+          : type === 'single_choice' && options.length > 0
+          ? options.slice(0, 5).map((_, i) => letterOrder[i] || String(i + 1))
           : options.length > 0
           ? options
           : ['А', 'Б', 'В', 'Г'],
@@ -908,13 +967,15 @@ export default function AdminEditTestPage() {
 
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
-              <textarea
-                value={currentQuestion.text}
-                onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
-                placeholder={t('adminCreateTest.questionTextPlaceholder')}
-                rows={2}
-              />
+                <textarea
+                  ref={questionTextRef}
+                  value={currentQuestion.text}
+                  onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
+                  onPaste={handlePasteImage}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                  placeholder={t('adminCreateTest.questionTextPlaceholder')}
+                  rows={2}
+                />
             </div>
 
             <div className="mb-4" onPaste={handlePasteImage} tabIndex={0}>
@@ -949,29 +1010,32 @@ export default function AdminEditTestPage() {
             {currentQuestion.type === 'single_choice' && (
               <>
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
-                <div className="space-y-2 mb-4">
-                  {getSingleChoiceDisplayOptions(currentQuestion.options).map((option, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="single-correct-edit"
-                        checked={currentQuestion.correctAnswer === i}
-                        onChange={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: i })}
-                      />
-                      <input
-                        type="text"
-                        value={option}
-                        onChange={(e) => {
-                          const newOptions = [...(getSingleChoiceDisplayOptions(currentQuestion.options) || [])];
-                          newOptions[i] = e.target.value;
-                          setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                        }}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
-                        placeholder={`${t('adminCreateTest.option')} ${i + 1}`}
-                      />
+                {(() => {
+                  const inline = parseInlineOptionsFromText(currentQuestion.text || '');
+                  const letters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
+                  const count = inline.hasInline ? inline.options.length : 4;
+                  return (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {Array.from({ length: count }, (_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: idx })}
+                          className={`h-10 w-10 rounded-lg border-2 font-bold transition ${
+                            currentQuestion.correctAnswer === idx
+                              ? 'border-blue-600 bg-blue-50 text-blue-700'
+                              : 'border-slate-300 dark:border-slate-600'
+                          }`}
+                        >
+                          {letters[idx] || String(idx + 1)}
+                        </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
+                <p className="text-xs text-slate-500">
+                  Вставте варіанти відповіді в текст питання (рядками А., Б., В., Г.), нижче оберіть правильну літеру.
+                </p>
               </>
             )}
 
@@ -991,29 +1055,36 @@ export default function AdminEditTestPage() {
             {currentQuestion.type === 'matching' && (
               <div>
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.matchingLabel')}</label>
-                <div className="grid grid-cols-6 gap-2 text-sm font-semibold mb-2">
-                  <div></div>
+                <div className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 text-sm font-semibold mb-2 items-center w-max">
+                  <div className="h-7" />
                   {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
-                    <div key={c} className="text-center">{c}</div>
+                    <div key={c} className="flex items-center justify-center h-7">{c}</div>
                   ))}
                 </div>
                 {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
-                  <div key={row} className="grid grid-cols-6 gap-2 items-center mb-2">
-                    <div className="text-sm font-semibold">{row + 1}</div>
-                    {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
-                      <label key={col} className="flex items-center justify-center">
-                        <input
-                          type="radio"
-                          name={`match-edit-${row}`}
-                          checked={(currentQuestion.correctAnswer as string[] | undefined)?.[row] === col}
-                          onChange={() => {
+                  <div key={row} className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 items-center mb-1 w-max">
+                    <div className="text-sm font-semibold h-7 flex items-center justify-center">{row + 1}</div>
+                    {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
+                      const selected = (currentQuestion.correctAnswer as string[] | undefined)?.[row] === col;
+                      return (
+                        <button
+                          key={col}
+                          type="button"
+                          onClick={() => {
                             const current = [...((currentQuestion.correctAnswer as string[]) || [])];
                             current[row] = col;
                             setCurrentQuestion({ ...currentQuestion, correctAnswer: current });
                           }}
-                        />
-                      </label>
-                    ))}
+                          className={`h-7 w-7 rounded-md border-2 font-bold transition flex items-center justify-center ${
+                            selected ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 dark:border-slate-600'
+                          }`}
+                          aria-pressed={selected}
+                        >
+                          <span className="sr-only">{col}</span>
+                          {selected ? '✓' : ''}
+                        </button>
+                      );
+                    })}
                   </div>
                 ))}
                 {test?.subject?.slug === 'mathematics' &&
@@ -1149,8 +1220,10 @@ export default function AdminEditTestPage() {
                     <div className="mb-4">
                       <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
                       <textarea
+                        ref={questionTextRef}
                         value={currentQuestion.text}
                         onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
+                        onPaste={handlePasteImage}
                         className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
                         placeholder={t('adminCreateTest.questionTextPlaceholder')}
                         rows={2}
@@ -1189,29 +1262,32 @@ export default function AdminEditTestPage() {
                     {currentQuestion.type === 'single_choice' && (
                       <>
                         <label className="block text-sm font-medium mb-2">{t('adminCreateTest.options')}</label>
-                        <div className="space-y-2 mb-4">
-                          {getSingleChoiceDisplayOptions(currentQuestion.options).map((option, idx) => (
-                            <div key={idx} className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name="single-correct-inline-edit"
-                                checked={currentQuestion.correctAnswer === idx}
-                                onChange={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: idx })}
-                              />
-                              <input
-                                type="text"
-                                value={option}
-                                onChange={(e) => {
-                                  const newOptions = [...(getSingleChoiceDisplayOptions(currentQuestion.options) || [])];
-                                  newOptions[idx] = e.target.value;
-                                  setCurrentQuestion({ ...currentQuestion, options: newOptions });
-                                }}
-                                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
-                                placeholder={`${t('adminCreateTest.option')} ${idx + 1}`}
-                              />
+                        {(() => {
+                          const inline = parseInlineOptionsFromText(currentQuestion.text || '');
+                          const letters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
+                          const count = inline.hasInline ? inline.options.length : 4;
+                          return (
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {Array.from({ length: count }, (_, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: idx })}
+                                  className={`h-10 w-10 rounded-lg border-2 font-bold transition ${
+                                    currentQuestion.correctAnswer === idx
+                                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                      : 'border-slate-300 dark:border-slate-600'
+                                  }`}
+                                >
+                                  {letters[idx] || String(idx + 1)}
+                                </button>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()}
+                        <p className="text-xs text-slate-500">
+                          Вставте варіанти відповіді в текст питання (рядками А., Б., В., Г.), нижче оберіть правильну літеру.
+                        </p>
                       </>
                     )}
 
@@ -1231,29 +1307,35 @@ export default function AdminEditTestPage() {
                     {currentQuestion.type === 'matching' && (
                       <div>
                         <label className="block text-sm font-medium mb-2">{t('adminCreateTest.matchingLabel')}</label>
-                        <div className="grid grid-cols-6 gap-2 text-sm font-semibold mb-2">
-                          <div></div>
+                        <div className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 text-sm font-semibold mb-2 items-center w-max">
+                          <div className="h-7" />
                           {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
-                            <div key={c} className="text-center">{c}</div>
+                            <div key={c} className="flex items-center justify-center h-7">{c}</div>
                           ))}
                         </div>
                         {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
-                          <div key={row} className="grid grid-cols-6 gap-2 items-center mb-2">
-                            <div className="text-sm font-semibold">{row + 1}</div>
-                            {['А', 'Б', 'В', 'Г', 'Д'].map((col) => (
-                              <label key={col} className="flex items-center justify-center">
-                                <input
-                                  type="radio"
-                                  name={`match-inline-edit-${row}`}
-                                  checked={(currentQuestion.correctAnswer as string[] | undefined)?.[row] === col}
-                                  onChange={() => {
+                          <div key={row} className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 items-center mb-1 w-max">
+                            <div className="text-sm font-semibold h-7 flex items-center justify-center">{row + 1}</div>
+                            {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
+                              const selected = (currentQuestion.correctAnswer as string[] | undefined)?.[row] === col;
+                              return (
+                                <button
+                                  key={col}
+                                  type="button"
+                                  onClick={() => {
                                     const current = [...((currentQuestion.correctAnswer as string[]) || [])];
                                     current[row] = col;
                                     setCurrentQuestion({ ...currentQuestion, correctAnswer: current });
                                   }}
-                                />
-                              </label>
-                            ))}
+                                  className={`h-10 w-10 rounded-lg border-2 font-bold transition ${
+                                    selected ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 dark:border-slate-600'
+                                  }`}
+                                  aria-pressed={selected}
+                                >
+                                  <span className="sr-only">{col}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         ))}
                         {test?.subject?.slug === 'mathematics' &&

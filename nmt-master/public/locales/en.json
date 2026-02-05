@@ -427,6 +427,7 @@
     "bulkWarnNeedSeven": "Needs 7 options",
     "bulkWarnSequence": "Sequence/chronology questions should be matching (A–D)",
     "bulkWarnNeedOptions": "Matching needs 4 options (A–D)",
+    "bulkWarnTooManyOptions": "Too many options (max 5) — check line breaks",
     "addMatchingRow": "Add row",
     "matchingAutoRow": "The 4th row appears after you fill the first three"
   },
