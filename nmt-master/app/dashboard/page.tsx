@@ -135,12 +135,16 @@ export default function DashboardPage() {
     });
     const locale = lang === 'uk' ? 'uk-UA' : 'en-US';
     const weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+    const today = new Date();
+    const isoDay = today.getDay() === 0 ? 7 : today.getDay(); // Mon=1..Sun=7
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (isoDay - 1));
     const arr: { key: string; active: boolean; label: string }[] = [];
-    const cursor = new Date();
     for (let i = 0; i < 7; i++) {
-      const key = getDayKey(cursor);
-      arr.unshift({ key, active: days.has(key), label: weekdayFmt.format(cursor) });
-      cursor.setDate(cursor.getDate() - 1);
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const key = getDayKey(d);
+      arr.push({ key, active: days.has(key), label: weekdayFmt.format(d) });
     }
     return arr;
   })();
