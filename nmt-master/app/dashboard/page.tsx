@@ -93,27 +93,41 @@ export default function DashboardPage() {
   const getDayKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-  const getStreak = () => {
-    const days = new Set<string>();
+  const MIN_DAILY_SECONDS = 25 * 60;
+
+  const getDailySeconds = () => {
+    const totals = new Map<string, number>();
     results.forEach((r) => {
-      days.add(getDayKey(new Date(r.createdAt)));
+      const key = getDayKey(new Date(r.createdAt));
+      const prev = totals.get(key) || 0;
+      totals.set(key, prev + (r.timeSpent || 0));
     });
+    return totals;
+  };
+
+  const getStreak = () => {
+    const totals = getDailySeconds();
+    const activeDays = new Set(
+      Array.from(totals.entries())
+        .filter(([, seconds]) => seconds >= MIN_DAILY_SECONDS)
+        .map(([key]) => key),
+    );
 
     const today = new Date();
     const todayKey = getDayKey(today);
     let cursor = today;
 
-    if (!days.has(todayKey)) {
+    if (!activeDays.has(todayKey)) {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      if (!days.has(getDayKey(yesterday))) return 0;
+      if (!activeDays.has(getDayKey(yesterday))) return 0;
       cursor = yesterday;
     }
 
     let streak = 0;
     for (;;) {
       const key = getDayKey(cursor);
-      if (!days.has(key)) break;
+      if (!activeDays.has(key)) break;
       streak += 1;
       cursor.setDate(cursor.getDate() - 1);
     }
@@ -129,10 +143,12 @@ export default function DashboardPage() {
     return 'text-slate-400';
   };
   const last7 = (() => {
-    const days = new Set<string>();
-    results.forEach((r) => {
-      days.add(getDayKey(new Date(r.createdAt)));
-    });
+    const totals = getDailySeconds();
+    const activeDays = new Set(
+      Array.from(totals.entries())
+        .filter(([, seconds]) => seconds >= MIN_DAILY_SECONDS)
+        .map(([key]) => key),
+    );
     const locale = lang === 'uk' ? 'uk-UA' : 'en-US';
     const weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: 'short' });
     const today = new Date();
@@ -144,7 +160,7 @@ export default function DashboardPage() {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const key = getDayKey(d);
-      arr.push({ key, active: days.has(key), label: weekdayFmt.format(d) });
+      arr.push({ key, active: activeDays.has(key), label: weekdayFmt.format(d) });
     }
     return arr;
   })();
@@ -280,6 +296,9 @@ export default function DashboardPage() {
                   {t('dashboard.studyStreak')}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{t('dashboard.goal7')}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Приділяйте тестуванням щонайменше 25 хвилин щодня, щоб активувати вогник.
+                </p>
               </div>
               <div className="flex items-center gap-2 text-2xl font-bold">
                 <span className={`text-3xl ${getFlameClass()}`}>🔥</span>

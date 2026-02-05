@@ -462,10 +462,42 @@ export default function AdminEditTestPage() {
     const normalizeInline = (input: string) =>
       input
         .replace(/([^\n])\s+(\d+\.)\s/g, '$1\n$2 ')
-        .replace(/([^\n])\s+([АБВГДЕЄ])\.\s/g, '$1\n$2. ');
+        .replace(/([^\n])\s+([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s/g, '$1\n$2. ');
 
-    const normalized = normalizeInline(text.replace(/\r\n/g, '\n'));
-    const parts = normalized.split(/ВІДПОВІДІ/i);
+    const normalizeBulkInput = (input: string) => {
+      const raw = input.replace(/\r\n/g, '\n').replace(/\u00A0/g, ' ');
+      const lines = raw
+        .split('\n')
+        .map((l) => l.replace(/[ \t]+/g, ' ').trim());
+      const out: string[] = [];
+      const isQuestionStart = (line: string) => /^\d+\.\s/.test(line);
+      const isOptionStart = (line: string) => /^[A-ZА-ЯІЇЄҐ](?:[.)]|:)?\s+/.test(line);
+      const isAnswersHeader = (line: string) => /^(ВІДПОВІДІ|ANSWERS)/i.test(line);
+
+      for (const line of lines) {
+        if (!line) continue;
+        if (isAnswersHeader(line)) {
+          out.push('ВІДПОВІДІ');
+          continue;
+        }
+        if (isQuestionStart(line) || isOptionStart(line)) {
+          out.push(line);
+          continue;
+        }
+        if (out.length === 0) {
+          out.push(line);
+          continue;
+        }
+        const prev = out[out.length - 1];
+        out[out.length - 1] = prev.endsWith('-')
+          ? `${prev.slice(0, -1)}${line}`
+          : `${prev} ${line}`;
+      }
+      return out.join('\n').trim();
+    };
+
+    const normalized = normalizeInline(normalizeBulkInput(text));
+    const parts = normalized.split(/ВІДПОВІДІ|ANSWERS/i);
     if (parts.length < 2) {
       setBulkError(t('adminCreateTest.bulkNoAnswers'));
       return;
@@ -476,15 +508,15 @@ export default function AdminEditTestPage() {
       .filter((l) => l && !/^\d{1,6}$/.test(l))
       .join('\n')
       .trim();
-    const answersBlock = parts.slice(1).join(' ').trim();
+    const answersBlock = parts.slice(1).join('\n').trim();
 
     const answerMap = new Map<number, string>();
-    const answerLines = answersBlock
+    const answerLines = normalizeInline(answersBlock)
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean);
     for (const line of answerLines) {
-      const m = line.match(/^(\d+)\.\s*([A-Za-zА-ЯІЇЄҐ0-9]+)/);
+      const m = line.match(/^(\d+)[.)]?\s*([A-Za-zА-ЯІЇЄҐ0-9]+)/);
       if (m) {
         answerMap.set(Number(m[1]), m[2].toUpperCase());
       }
@@ -499,7 +531,7 @@ export default function AdminEditTestPage() {
     let currentLines: string[] = [];
     let inMatching = false;
     let seenOptions = false;
-    const optionHeaderRegex = /^\s*([АБВГДЕЄ])\.\s*/;
+    const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s*/;
 
     const flushBlock = () => {
       if (currentId > 0 && currentLines.length > 0) {
@@ -537,6 +569,8 @@ export default function AdminEditTestPage() {
     flushBlock();
 
     const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
+    const sequenceHintRegex =
+      /(Установіть\s+(послідовність|хронологію)|у\s*хронологічній\s*послідовності|розташуйте\s+в\s+хронологічній\s+послідовності|розташуйте\s+в\s+правильній\s+послідовності)/i;
     const subjectSlug = base.subject?.slug || '';
 
     const parsed: EditQuestion[] = [];
@@ -551,7 +585,7 @@ export default function AdminEditTestPage() {
         .map((l) => l.trim())
         .filter((l) => l && !/^\d{1,6}$/.test(l));
 
-      const optionHeaderRegex = /^\s*([АБВГДЕЄ])\.\s*/;
+      const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s*/;
       const optionLinesRaw: string[] = [];
       const optionLinesText: string[] = [];
       const leftMatchLines = lines.filter((l) => /^\d+\.\s/.test(l));
@@ -569,6 +603,7 @@ export default function AdminEditTestPage() {
 
       const options = optionLinesText;
       const answerLetters = ans.replace(/[^A-ZА-ЯІЇЄҐ]/g, '').toUpperCase();
+      const sequenceHint = sequenceHintRegex.test(qb.text);
 
       let type: EditQuestion['type'] = 'single_choice';
       let correctAnswer: EditQuestion['correctAnswer'] = 0;
@@ -577,13 +612,17 @@ export default function AdminEditTestPage() {
         && leftMatchLines.length >= (subjectSlug === 'mathematics' ? 3 : 4)
         && optionLinesRaw.length >= 4
         && (subjectSlug === 'mathematics' ? answerLetters.length >= 3 : answerLetters.length === 4);
+      const isSequence = subjectSlug === 'history-ukraine'
+        && sequenceHint
+        && optionLinesRaw.length >= 4
+        && answerLetters.length >= 4;
       const isSelectThree = answerLetters.length === 3 && !isMatching;
       const isWritten = options.length === 0 && /^\d+$/.test(ans) && subjectSlug === 'mathematics';
 
       if (isWritten) {
         type = 'written';
         correctAnswer = ans;
-      } else if (isMatching) {
+      } else if (isMatching || isSequence) {
         type = 'matching';
         const rowCount = subjectSlug === 'mathematics'
           ? Math.min(4, Math.max(3, answerLetters.length))
@@ -616,9 +655,19 @@ export default function AdminEditTestPage() {
         correctAnswer = 0;
         warnings[listIndex] = t('adminCreateTest.bulkWarnNoOptions');
       }
+      if (sequenceHint && !isSequence) {
+        warnings[listIndex] = warnings[listIndex]
+          ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnSequence')}`
+          : t('adminCreateTest.bulkWarnSequence');
+      }
+      if ((isMatching || isSequence) && optionLinesRaw.length < 4) {
+        warnings[listIndex] = warnings[listIndex]
+          ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnNeedOptions')}`
+          : t('adminCreateTest.bulkWarnNeedOptions');
+      }
 
       const questionText = (() => {
-        if (isMatching) {
+        if (isMatching || isSequence) {
           const prompt = lines.find((l) => !/^\d+\./.test(l) && !/^[А-ЯA-Z]\./.test(l)) || '';
           const left = leftMatchLines.join('\n');
           const right = optionLinesRaw.join('\n');

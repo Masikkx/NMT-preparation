@@ -415,7 +415,7 @@
     "modeManual": "Manual",
     "modeBulk": "Paste text",
     "bulkLabel": "Paste the full test text",
-    "bulkPlaceholder": "Paste the full test text with answers...",
+    "bulkPlaceholder": "Paste text in this format:\n1. Question...\nA 20\nB 25\nC 30\nD 35\nE 55\n2. Next question...\nA ...\nB ...\nANSWERS\n1. A\n2. B",
     "parseBulk": "Parse text",
     "appendBulk": "Append to current",
     "bulkEmpty": "Please paste text for import",
@@ -425,6 +425,8 @@
     "bulkWarnNoOptions": "Missing options",
     "bulkWarnSelectThree": "Check 3 of 7",
     "bulkWarnNeedSeven": "Needs 7 options",
+    "bulkWarnSequence": "Sequence/chronology questions should be matching (A–D)",
+    "bulkWarnNeedOptions": "Matching needs 4 options (A–D)",
     "addMatchingRow": "Add row",
     "matchingAutoRow": "The 4th row appears after you fill the first three"
   },

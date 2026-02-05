@@ -60,6 +60,7 @@ export default function TestPage() {
   const [restored, setRestored] = useState(false);
   const [resumeAttempt, setResumeAttempt] = useState<any>(null);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [viewMode, setViewMode] = useState<'paged' | 'scroll'>('paged');
 
   useEffect(() => {
     if (!user) {
@@ -340,9 +341,7 @@ export default function TestPage() {
     }));
   };
 
-  const checkCurrentAnswer = () => {
-    if (!test) return;
-    const q = test.questions[currentQuestionIndex];
+  const checkAnswerForQuestion = (q: Question) => {
     const userAnswer = answers[q.id];
     const correctAnswerIds = q.answers.filter((a) => a.isCorrect).map((a) => a.id);
     const correctAnswerTexts = q.answers.filter((a) => a.isCorrect).map((a) => a.content);
@@ -352,9 +351,9 @@ export default function TestPage() {
     const correctSelectThree = q.answers
       .filter((a) => a.isCorrect)
       .map((a) => String(a.order));
-    const { isCorrect, partialCredit } = checkAnswer(
-      q.type,
-      userAnswer ?? '',
+      const { isCorrect, partialCredit } = checkAnswer(
+        q.type,
+        userAnswer ?? '',
       q.type === 'written' || q.type === 'select_three' || q.type === 'matching'
         ? q.type === 'matching'
           ? correctMatching
@@ -511,21 +510,21 @@ export default function TestPage() {
     return acc + (isCorrect ? 1 : 0);
   }, 0);
 
-  const currentCheckDisabled = (() => {
-    const q = currentQuestion;
+  const getCheckDisabled = (q: Question) => {
     const ans = answers[q.id];
     if (q.type === 'written') return !ans || String(ans).trim() === '';
     if (q.type === 'single_choice') return !ans;
-    if (q.type === 'multiple_answers') return !ans;
+    if (q.type === 'multiple_answers') return !Array.isArray(ans) || ans.length === 0;
     if (q.type === 'select_three') return !ans || ans.filter((v: any) => String(v).trim() !== '').length < 3;
     if (q.type === 'matching') {
       const requiredMatches = test.subject?.slug === 'mathematics'
-        ? Math.max(3, currentQuestion.answers.filter((a) => a.isCorrect).length || 3)
+        ? Math.max(3, q.answers.filter((a) => a.isCorrect).length || 3)
         : 4;
       return !ans || ans.filter((v: any) => v).length < requiredMatches;
     }
     return false;
-  })();
+  };
+  const optionLetters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
 
   const getMatchingLists = (content: string) => {
     const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -535,10 +534,291 @@ export default function TestPage() {
     return { prompt, left, right };
   };
 
-  const matchingParts =
-    currentQuestion.type === 'matching'
-      ? getMatchingLists(currentQuestion.content || '')
-      : null;
+  const renderQuestionCard = (q: Question, idx: number) => {
+    const parts = q.type === 'matching' ? getMatchingLists(q.content || '') : null;
+    return (
+      <div
+        key={q.id}
+        id={`q-${q.id}`}
+        className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-6"
+      >
+        {q.content && (
+          <h2 className="text-base sm:text-lg font-semibold mb-4 whitespace-pre-line">
+            {q.type === 'matching'
+              ? parts?.prompt || q.content
+              : q.content}
+          </h2>
+        )}
+        {q.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={q.imageUrl} alt="question" className="mb-4 max-h-80 rounded" />
+        )}
+
+        <div className="space-y-4 mb-6">
+          {(q.type === 'single_choice' || q.type === 'multiple_answers') && (
+            <div className="space-y-3">
+              {q.answers
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((answer, aIdx) => {
+                  const isMulti = q.type === 'multiple_answers';
+                  const selected = isMulti
+                    ? Array.isArray(answers[q.id]) &&
+                      (answers[q.id] as string[]).includes(answer.id)
+                    : answers[q.id] === answer.id;
+                  const isChecked = !!checked[q.id];
+                  const isCorrect = isChecked && !!answer.isCorrect;
+                  const isWrong = isChecked && selected && !answer.isCorrect;
+                  const isMissed = isChecked && !selected && !!answer.isCorrect;
+                  const borderClass = isCorrect
+                    ? 'border-green-500'
+                    : isWrong
+                    ? 'border-red-500'
+                    : isMissed
+                    ? 'border-amber-400'
+                    : 'border-slate-300 dark:border-slate-600';
+                  const bgClass = isCorrect
+                    ? 'bg-green-50 dark:bg-green-900/30'
+                    : isWrong
+                    ? 'bg-red-50 dark:bg-red-900/30'
+                    : isMissed
+                    ? 'bg-amber-50 dark:bg-amber-900/20'
+                    : 'bg-white dark:bg-slate-800';
+                  const badgeClass = isCorrect
+                    ? 'bg-green-600 text-white border-green-600'
+                    : isWrong
+                    ? 'bg-red-600 text-white border-red-600'
+                    : selected
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600';
+                  return (
+                    <label
+                      key={answer.id}
+                      className={`flex items-start gap-3 p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition hover:border-blue-300 dark:hover:border-blue-500 ${borderClass} ${bgClass}`}
+                    >
+                      <input
+                        type={isMulti ? 'checkbox' : 'radio'}
+                        name={q.id}
+                        value={answer.id}
+                        checked={selected}
+                        onChange={() => {
+                          if (isMulti) {
+                            const current = Array.isArray(answers[q.id])
+                              ? (answers[q.id] as string[])
+                              : [];
+                            const next = current.includes(answer.id)
+                              ? current.filter((id) => id !== answer.id)
+                              : [...current, answer.id];
+                            handleAnswerChange(q.id, next);
+                          } else {
+                            handleAnswerChange(q.id, answer.id);
+                          }
+                        }}
+                        disabled={!!checked[q.id]}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-bold ${badgeClass}`}
+                      >
+                        {optionLetters[aIdx] || String(aIdx + 1)}
+                      </span>
+                      <span className="text-base leading-relaxed">{answer.content}</span>
+                    </label>
+                  );
+                })}
+            </div>
+          )}
+
+          {q.type === 'written' && (
+            <input
+              type="text"
+              placeholder={t('test.enterAnswer')}
+              value={answers[q.id] || ''}
+              onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+              disabled={!!checked[q.id]}
+              className={`w-full px-4 py-3 border-2 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                checked[q.id]
+                  ? statusMap[q.id] === 'correct'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                    : statusMap[q.id] === 'partial'
+                    ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
+                    : 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                  : 'border-slate-300 dark:border-slate-600'
+              }`}
+            />
+          )}
+
+          {q.type === 'select_three' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3">
+                {q.answers
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map((answer, aIdx) => (
+                    <div key={answer.id} className="flex gap-2 items-start">
+                      <span className="text-sm font-semibold w-6 text-center">{aIdx + 1}</span>
+                      <span className="text-sm">{answer.content}</span>
+                    </div>
+                  ))}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((sIdx) => (
+                  (() => {
+                    const correctSelectThree = q.answers
+                      .filter((a) => a.isCorrect)
+                      .map((a) => String(a.order));
+                    const val = (answers[q.id] || [])[sIdx] || '';
+                    const isChecked = !!checked[q.id];
+                    const isCorrect = isChecked && correctSelectThree.includes(String(val));
+                    const isWrong = isChecked && val && !correctSelectThree.includes(String(val));
+                    const inputClass = isChecked
+                      ? isCorrect
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                        : isWrong
+                        ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                        : 'border-slate-300 dark:border-slate-600'
+                      : 'border-slate-300 dark:border-slate-600';
+                    return (
+                      <input
+                        key={sIdx}
+                        type="number"
+                        min="1"
+                        max="7"
+                        placeholder={`${sIdx + 1}`}
+                        value={(answers[q.id] || [])[sIdx] || ''}
+                        onChange={(e) => {
+                          const current = [...(answers[q.id] || [])];
+                          current[sIdx] = e.target.value;
+                          handleAnswerChange(q.id, current);
+                        }}
+                        disabled={!!checked[q.id]}
+                        className={`w-full px-3 py-2 border-2 rounded-lg bg-white dark:bg-slate-700 ${inputClass}`}
+                      />
+                    );
+                  })()
+                ))}
+              </div>
+            </div>
+          )}
+
+          {q.type === 'matching' && (
+            (() => {
+              const { left, right } = parts || { left: [], right: [] };
+              const correctMatching = q.answers
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((a) => a.matchingPair ?? '') as string[];
+              const cols = right.length > 0 ? right : ['А.', 'Б.', 'В.', 'Г.', 'Д.'];
+              const rowCount = test.subject?.slug === 'mathematics'
+                ? Math.max(3, Math.min(4, correctMatching.length || left.length || 3))
+                : 4;
+              const leftItems = (left.length > 0 ? left : ['1.', '2.', '3.', '4.']).slice(0, rowCount);
+              return (
+                <div className="space-y-3">
+                  {(left.length > 0 || right.length > 0) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                        <p className="font-semibold mb-2">{rowCount === 3 ? '1–3' : '1–4'}</p>
+                        <div className="space-y-1">
+                          {leftItems.map((l, i) => (
+                            <div key={`left-${i}`} className="text-slate-700 dark:text-slate-300">
+                              {l}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                        <p className="font-semibold mb-2">А–Д</p>
+                        <div className="space-y-1">
+                          {cols.map((r, i) => (
+                            <div key={`right-${i}`} className="text-slate-700 dark:text-slate-300">
+                              {r}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className={`grid grid-cols-6 gap-0 w-full max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
+                    <div className="flex items-center justify-center text-sm font-semibold aspect-square sm:aspect-auto" />
+                    {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
+                      <div
+                        key={`head-${c}`}
+                        className="flex items-center justify-center text-sm font-semibold border-l border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto"
+                      >
+                        {c}
+                      </div>
+                    ))}
+                    {Array.from({ length: rowCount }, (_, row) => row).map((row) => (
+                      <div key={`row-${row}`} className="contents">
+                        <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto">
+                          {row + 1}
+                        </div>
+                        {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
+                          const selected = (answers[q.id] || [])[row];
+                          const correct = correctMatching[row];
+                          const isChecked = !!checked[q.id];
+                          const isSelected = selected === col;
+                          const isCorrect = isChecked && isSelected && correct === col;
+                          const isWrong = isChecked && isSelected && correct !== col;
+                          const isMissed = isChecked && !isSelected && correct === col;
+                          const cellClass = isCorrect
+                            ? 'bg-green-100 dark:bg-green-900/30'
+                            : isWrong
+                            ? 'bg-red-100 dark:bg-red-900/30'
+                            : isMissed
+                            ? 'bg-green-50 dark:bg-green-900/10'
+                            : '';
+                          return (
+                            <label
+                              key={`cell-${row}-${col}`}
+                              className={`flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto ${cellClass}`}
+                            >
+                              <input
+                                type="radio"
+                                name={`match-${q.id}-${row}`}
+                                value={col}
+                                checked={isSelected}
+                                onChange={() => {
+                                  const current = [...(answers[q.id] || [])];
+                                  current[row] = col;
+                                  handleAnswerChange(q.id, current);
+                                }}
+                                disabled={!!checked[q.id]}
+                                className="w-5 h-5"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()
+          )}
+        </div>
+
+        {q.type === 'written' &&
+          checked[q.id] &&
+          statusMap[q.id] !== 'correct' &&
+          correctTextMap[q.id] && (
+            <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-sm">
+              <span className="font-semibold">{t('test.correctAnswer')}:</span>{' '}
+              {correctTextMap[q.id]}
+            </div>
+          )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => checkAnswerForQuestion(q)}
+            disabled={getCheckDisabled(q)}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+          >
+            {t('test.checkAnswer')}
+          </button>
+          <span className="text-sm text-slate-500 self-center">{idx + 1} / {test.questions.length}</span>
+        </div>
+      </div>
+    );
+  };
   const showMathMaterials = test?.subject?.slug === 'mathematics';
   const materialsUrl = 'https://testportal.gov.ua/wp-content/uploads/2022/04/ZNO_Math_dovidkovy-materialy.pdf';
 
@@ -660,255 +940,72 @@ export default function TestPage() {
                 </button>
               ))}
             </div>
-            {/* Question */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-6">
-              {currentQuestion.content && (
-                <h2 className="text-xl font-bold mb-4 whitespace-pre-line">
-                  {currentQuestion.type === 'matching'
-                    ? matchingParts?.prompt || currentQuestion.content
-                    : currentQuestion.content}
-                </h2>
-              )}
-              {currentQuestion.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={currentQuestion.imageUrl} alt="question" className="mb-4 max-h-80 rounded" />
-              )}
-
-              {/* Answer Options */}
-              <div className="space-y-4 mb-6">
-                {(currentQuestion.type === 'single_choice' || currentQuestion.type === 'multiple_answers') && (
-                  <div className="space-y-3">
-                    {currentQuestion.answers.map((answer) => (
-                      <label
-                        key={answer.id}
-                        className={`flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition ${
-                          checked[currentQuestion.id] && answer.isCorrect
-                            ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
-                            : 'border-slate-300 dark:border-slate-600'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={currentQuestion.id}
-                          value={answer.id}
-                          checked={answers[currentQuestion.id] === answer.id}
-                          onChange={() => handleAnswerChange(currentQuestion.id, answer.id)}
-                          disabled={!!checked[currentQuestion.id]}
-                          className="w-5 h-5 shrink-0"
-                        />
-                        <span className="ml-3">{answer.content}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                {currentQuestion.type === 'written' && (
-                  <input
-                    type="text"
-                    placeholder={t('test.enterAnswer')}
-                    value={answers[currentQuestion.id] || ''}
-                    onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                    disabled={!!checked[currentQuestion.id]}
-                    className={`w-full px-4 py-3 border-2 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                      checked[currentQuestion.id]
-                        ? statusMap[currentQuestion.id] === 'correct'
-                          ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
-                          : statusMap[currentQuestion.id] === 'partial'
-                          ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
-                          : 'border-red-500 bg-red-50 dark:bg-red-900/30'
-                        : 'border-slate-300 dark:border-slate-600'
-                    }`}
-                  />
-                )}
-
-                {currentQuestion.type === 'select_three' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3">
-                      {currentQuestion.answers
-                        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                        .map((answer, idx) => (
-                          <div key={answer.id} className="flex gap-2 items-start">
-                            <span className="text-sm font-semibold w-6 text-center">{idx + 1}</span>
-                            <span className="text-sm">{answer.content}</span>
-                          </div>
-                        ))}
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[0, 1, 2].map((idx) => (
-                        (() => {
-                          const correctSelectThree = currentQuestion.answers
-                            .filter((a) => a.isCorrect)
-                            .map((a) => String(a.order));
-                          const val = (answers[currentQuestion.id] || [])[idx] || '';
-                          const isChecked = !!checked[currentQuestion.id];
-                          const isCorrect = isChecked && correctSelectThree.includes(String(val));
-                          const isWrong = isChecked && val && !correctSelectThree.includes(String(val));
-                          const inputClass = isChecked
-                            ? isCorrect
-                              ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
-                              : isWrong
-                              ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
-                              : 'border-slate-300 dark:border-slate-600'
-                            : 'border-slate-300 dark:border-slate-600';
-                          return (
-                        <input
-                          key={idx}
-                          type="number"
-                          min="1"
-                          max="7"
-                          placeholder={`${idx + 1}`}
-                          value={(answers[currentQuestion.id] || [])[idx] || ''}
-                          onChange={(e) => {
-                            const current = [...(answers[currentQuestion.id] || [])];
-                            current[idx] = e.target.value;
-                            handleAnswerChange(currentQuestion.id, current);
-                          }}
-                          disabled={!!checked[currentQuestion.id]}
-                          className={`w-full px-3 py-2 border-2 rounded-lg bg-white dark:bg-slate-700 ${inputClass}`}
-                        />
-                          );
-                        })()
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {currentQuestion.type === 'matching' && (
-                  (() => {
-                    const { left, right } = matchingParts || { left: [], right: [] };
-                    const correctMatching = currentQuestion.answers
-                      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                      .map((a) => a.matchingPair ?? '') as string[];
-                    const cols = right.length > 0 ? right : ['А.', 'Б.', 'В.', 'Г.', 'Д.'];
-                    const rowCount = test.subject?.slug === 'mathematics'
-                      ? Math.max(3, Math.min(4, correctMatching.length || left.length || 3))
-                      : 4;
-                    const leftItems = (left.length > 0 ? left : ['1.', '2.', '3.', '4.']).slice(0, rowCount);
-                    return (
-                      <div className="space-y-3">
-                        {(left.length > 0 || right.length > 0) && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                              <p className="font-semibold mb-2">{rowCount === 3 ? '1–3' : '1–4'}</p>
-                              <div className="space-y-1">
-                                {leftItems.map((l, i) => (
-                                  <div key={`left-${i}`} className="text-slate-700 dark:text-slate-300">
-                                    {l}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                              <p className="font-semibold mb-2">А–Д</p>
-                              <div className="space-y-1">
-                                {cols.map((r, i) => (
-                                  <div key={`right-${i}`} className="text-slate-700 dark:text-slate-300">
-                                    {r}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <div className={`grid grid-cols-6 gap-0 w-full max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
-                          <div className="flex items-center justify-center text-sm font-semibold aspect-square sm:aspect-auto" />
-                          {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
-                            <div
-                              key={`head-${c}`}
-                              className="flex items-center justify-center text-sm font-semibold border-l border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto"
-                            >
-                              {c}
-                            </div>
-                          ))}
-                          {Array.from({ length: rowCount }, (_, row) => row).map((row) => (
-                            <div key={`row-${row}`} className="contents">
-                              <div className="flex items-center justify-center text-sm font-semibold border-t border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto">
-                                {row + 1}
-                              </div>
-                              {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
-                                const selected = (answers[currentQuestion.id] || [])[row];
-                                const correct = correctMatching[row];
-                                const isChecked = !!checked[currentQuestion.id];
-                                const isSelected = selected === col;
-                                const isCorrect = isChecked && isSelected && correct === col;
-                                const isWrong = isChecked && isSelected && correct !== col;
-                                const isMissed = isChecked && !isSelected && correct === col;
-                                const cellClass = isCorrect
-                                  ? 'bg-green-100 dark:bg-green-900/30'
-                                  : isWrong
-                                  ? 'bg-red-100 dark:bg-red-900/30'
-                                  : isMissed
-                                  ? 'bg-green-50 dark:bg-green-900/10'
-                                  : '';
-                                return (
-                                  <label
-                                    key={`cell-${row}-${col}`}
-                                    className={`flex items-center justify-center border-l border-t border-slate-300 dark:border-slate-600 aspect-square sm:aspect-auto ${cellClass}`}
-                                  >
-                                    <input
-                                      type="radio"
-                                      name={`match-${currentQuestion.id}-${row}`}
-                                      value={col}
-                                      checked={isSelected}
-                                      onChange={() => {
-                                        const current = [...(answers[currentQuestion.id] || [])];
-                                        current[row] = col;
-                                        handleAnswerChange(currentQuestion.id, current);
-                                      }}
-                                      disabled={!!checked[currentQuestion.id]}
-                                      className="w-5 h-5"
-                                    />
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()
-                )}
+            {viewMode === 'paged' ? (
+              renderQuestionCard(currentQuestion, currentQuestionIndex)
+            ) : (
+              <div>
+                {test.questions.map((q, idx) => renderQuestionCard(q, idx))}
               </div>
-              {currentQuestion.type === 'written' &&
-                checked[currentQuestion.id] &&
-                statusMap[currentQuestion.id] !== 'correct' &&
-                correctTextMap[currentQuestion.id] && (
-                  <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-sm">
-                    <span className="font-semibold">{t('test.correctAnswer')}:</span>{' '}
-                    {correctTextMap[currentQuestion.id]}
-                  </div>
-                )}
-            </div>
+            )}
 
             {/* Navigation */}
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={handlePreviousQuestion}
-                disabled={currentQuestionIndex === 0 || paused}
-                className="px-5 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 disabled:opacity-50 rounded-lg font-semibold transition"
-              >
-                ← {t('test.previous')}
-              </button>
-              <button
-                onClick={handleNextQuestion}
-                disabled={currentQuestionIndex === test.questions.length - 1 || paused}
-                className="px-5 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 disabled:opacity-50 rounded-lg font-semibold transition"
-              >
-                {t('test.next')} →
-              </button>
-              <button
-                onClick={checkCurrentAnswer}
-                disabled={currentCheckDisabled}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
-              >
-                {t('test.checkAnswer')}
-              </button>
-            </div>
+            {viewMode === 'paged' && (
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handlePreviousQuestion}
+                  disabled={currentQuestionIndex === 0 || paused}
+                  className="px-5 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 disabled:opacity-50 rounded-lg font-semibold transition"
+                >
+                  ← {t('test.previous')}
+                </button>
+                <button
+                  onClick={handleNextQuestion}
+                  disabled={currentQuestionIndex === test.questions.length - 1 || paused}
+                  className="px-5 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 disabled:opacity-50 rounded-lg font-semibold transition"
+                >
+                  {t('test.next')} →
+                </button>
+                <button
+                  onClick={() => checkAnswerForQuestion(currentQuestion)}
+                  disabled={getCheckDisabled(currentQuestion)}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                >
+                  {t('test.checkAnswer')}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Sidebar - Question Navigation */}
           <div className="hidden lg:block lg:col-span-1">
             <div className="bg-white dark:bg-slate-800 rounded-lg p-5 shadow-md border border-slate-200 dark:border-slate-700 sticky top-24">
               <h3 className="text-lg font-bold mb-4">{t('test.progress')}</h3>
+
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-slate-500 mb-2">Режим перегляду</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setViewMode('paged')}
+                    className={`flex-1 px-3 py-2 rounded-lg border text-sm font-semibold ${
+                      viewMode === 'paged'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    По питаннях
+                  </button>
+                  <button
+                    onClick={() => setViewMode('scroll')}
+                    className={`flex-1 px-3 py-2 rounded-lg border text-sm font-semibold ${
+                      viewMode === 'scroll'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    Скрол
+                  </button>
+                </div>
+              </div>
 
               {/* Progress Bar */}
               <div className="mb-6">
@@ -929,7 +1026,13 @@ export default function TestPage() {
                 {test.questions.map((q, idx) => (
                   <button
                     key={q.id}
-                    onClick={() => setCurrentQuestionIndex(idx)}
+                    onClick={() => {
+                      setCurrentQuestionIndex(idx);
+                      if (viewMode === 'scroll') {
+                        const el = document.getElementById(`q-${q.id}`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
                     className={`w-8 h-8 rounded font-semibold text-sm transition ${
                       idx === currentQuestionIndex
                         ? 'bg-blue-600 text-white'
