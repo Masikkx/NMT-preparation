@@ -631,13 +631,13 @@ export default function TestPage() {
         key={q.id}
         id={`q-${q.id}`}
         data-question-index={idx}
-        className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-6"
+        className="bg-white dark:bg-slate-800 rounded-lg p-4 sm:p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-4 sm:mb-6"
       >
-        <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">
+        <div className="text-base sm:text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">
           {idx + 1}
         </div>
         {q.content && (
-          <div className="text-base sm:text-lg font-semibold mb-4 whitespace-pre-line">
+          <div className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4 whitespace-pre-line">
             {q.type === 'matching' ? (
               parts?.prompt || q.content
             ) : inlineOptions.hasInline ? (
@@ -671,7 +671,7 @@ export default function TestPage() {
                             );
                           }
                           return (
-                            <div key={`line-${i}-${ix}`} className="font-semibold">
+                            <div key={`line-${i}-${ix}`} className="font-semibold text-sm sm:text-lg">
                               {line}
                             </div>
                           );
@@ -705,7 +705,7 @@ export default function TestPage() {
                     ))}
                 </div>
               )}
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 {q.answers
                   .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                   .map((answer, aIdx) => {
@@ -742,7 +742,7 @@ export default function TestPage() {
                           }
                         }}
                         disabled={!!checked[q.id]}
-                        className={`h-10 w-10 rounded-lg border-2 font-bold transition ${badgeClass}`}
+                        className={`h-9 w-9 sm:h-10 sm:w-10 rounded-lg border-2 font-bold transition ${badgeClass}`}
                         aria-pressed={selected}
                       >
                         {optionLetters[aIdx] || String(aIdx + 1)}
@@ -760,7 +760,7 @@ export default function TestPage() {
               value={answers[q.id] || ''}
               onChange={(e) => handleAnswerChange(q.id, e.target.value)}
               disabled={!!checked[q.id]}
-              className={`w-full px-4 py-3 border-2 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+              className={`w-full px-4 py-2 sm:py-3 border-2 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
                 checked[q.id]
                   ? statusMap[q.id] === 'correct'
                     ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
@@ -861,7 +861,7 @@ export default function TestPage() {
                       </div>
                     </div>
                   )}
-                  <div className={`grid grid-cols-6 gap-0 w-full max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
+                  <div className={`grid grid-cols-6 gap-0 w-full max-w-[280px] sm:max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
                     <div className="flex items-center justify-center text-sm font-semibold aspect-square sm:aspect-auto" />
                     {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
                       <div
@@ -904,10 +904,10 @@ export default function TestPage() {
                                   handleAnswerChange(q.id, current);
                                 }}
                                 disabled={!!checked[q.id]}
-                                  className={`h-10 w-10 rounded-lg border-2 font-bold transition flex items-center justify-center ${
-                                    isSelected
-                                      ? 'border-blue-600 bg-blue-50 text-blue-700'
-                                      : 'border-slate-300 dark:border-slate-600'
+                                className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg border-2 font-bold transition flex items-center justify-center ${
+                                  isSelected
+                                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                    : 'border-slate-300 dark:border-slate-600'
                                   }`}
                                   aria-pressed={isSelected}
                                 >
@@ -940,7 +940,7 @@ export default function TestPage() {
           <button
             onClick={() => checkAnswerForQuestion(q)}
             disabled={getCheckDisabled(q)}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+            className="px-4 sm:px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition text-sm sm:text-base"
           >
             {t('test.checkAnswer')}
           </button>
@@ -978,9 +978,9 @@ export default function TestPage() {
         </div>
       )}
       {/* Header */}
-      <div className="max-w-7xl mx-auto px-4 py-4">
-        <h1 className="text-2xl font-bold">{test.title}</h1>
-        <p className="text-slate-600 dark:text-slate-400">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+        <h1 className="text-xl sm:text-2xl font-bold">{test.title}</h1>
+        <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base">
           {t('test.question')} {currentQuestionIndex + 1} {t('test.of')} {test.questions.length}
         </p>
         {mode === 'fix' && (
@@ -996,16 +996,16 @@ export default function TestPage() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-3">
             {/* Mobile Actions */}
-            <div className="lg:hidden mb-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="lg:hidden mb-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="text-sm font-semibold">
                 {t('test.timeRemaining')}: {formatTime(timeRemaining)}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {showMathMaterials && (
                   <a
                     href={materialsUrl}
@@ -1047,27 +1047,74 @@ export default function TestPage() {
                 </button>
               </div>
             </div>
-            {/* Top Pagination */}
-            <div className="mb-4 flex flex-wrap gap-2 lg:hidden">
-              {test.questions.map((q, idx) => (
-                <button
-                  key={q.id}
-                  onClick={() => setCurrentQuestionIndex(idx)}
-                  className={`w-8 h-8 rounded font-semibold text-sm transition ${
-                    idx === currentQuestionIndex
-                      ? 'bg-blue-600 text-white'
-                      : checked[q.id]
-                      ? statusMap[q.id] === 'correct'
-                        ? 'bg-green-500 text-white'
-                        : statusMap[q.id] === 'partial'
-                        ? 'bg-yellow-500 text-white'
-                        : 'bg-red-500 text-white'
-                      : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
+            {/* Mobile/Tablet Progress & View Mode */}
+            <div className="lg:hidden mb-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-bold">{t('test.progress')}</h3>
+                <span className="text-xs text-slate-500">
+                  {currentQuestionIndex + 1} / {test.questions.length}
+                </span>
+              </div>
+              <div className="mt-2">
+                <p className="text-[11px] font-semibold text-slate-500 mb-1">Режим перегляду</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setViewMode('paged')}
+                    className={`flex-1 px-2 py-1.5 rounded-full border text-[11px] font-semibold ${
+                      viewMode === 'paged'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    По питаннях
+                  </button>
+                  <button
+                    onClick={() => setViewMode('scroll')}
+                    className={`flex-1 px-2 py-1.5 rounded-full border text-[11px] font-semibold ${
+                      viewMode === 'scroll'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    Скрол
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                {test.questions.map((q, idx) => (
+                  <button
+                    key={q.id}
+                    onClick={() => {
+                      setCurrentQuestionIndex(idx);
+                      if (viewMode === 'scroll') {
+                        const el = document.getElementById(`q-${q.id}`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
+                    className={`min-w-[2rem] h-8 rounded font-semibold text-xs transition ${
+                      idx === currentQuestionIndex
+                        ? 'bg-blue-600 text-white'
+                        : checked[q.id]
+                        ? statusMap[q.id] === 'correct'
+                          ? 'bg-green-500 text-white'
+                          : statusMap[q.id] === 'partial'
+                          ? 'bg-yellow-500 text-white'
+                          : 'bg-red-500 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                  >
+                    {idx + 1}
+                  </button>
+                ))}
+              </div>
             </div>
             {viewMode === 'paged' ? (
               renderQuestionCard(currentQuestion, currentQuestionIndex)

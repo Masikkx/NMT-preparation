@@ -1095,38 +1095,42 @@ export default function AdminEditTestPage() {
             {currentQuestion.type === 'matching' && (
               <div>
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.matchingLabel')}</label>
-                <div className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 text-sm font-semibold mb-2 items-center w-max">
-                  <div className="h-7" />
-                  {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
-                    <div key={c} className="flex items-center justify-center h-7">{c}</div>
-                  ))}
-                </div>
-                {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
-                  <div key={row} className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 items-center mb-1 w-max">
-                    <div className="text-sm font-semibold h-7 flex items-center justify-center">{row + 1}</div>
-                    {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
-                      const selected = (currentQuestion.correctAnswer as string[] | undefined)?.[row] === col;
-                      return (
-                        <button
-                          key={col}
-                          type="button"
-                          onClick={() => {
-                            const current = [...((currentQuestion.correctAnswer as string[]) || [])];
-                            current[row] = col;
-                            setCurrentQuestion({ ...currentQuestion, correctAnswer: current });
-                          }}
-                          className={`h-7 w-7 rounded-md border-2 font-bold transition flex items-center justify-center ${
-                            selected ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 dark:border-slate-600'
-                          }`}
-                          aria-pressed={selected}
-                        >
-                          <span className="sr-only">{col}</span>
-                          {selected ? '✓' : ''}
-                        </button>
-                      );
-                    })}
+                <div className="overflow-x-auto">
+                  <div className="grid gap-1 w-max">
+                    <div className="grid grid-cols-[1.5rem_repeat(5,2rem)] gap-1 text-sm font-semibold items-center">
+                      <div className="h-8" />
+                      {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
+                        <div key={c} className="flex items-center justify-center h-8">{c}</div>
+                      ))}
+                    </div>
+                    {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
+                      <div key={row} className="grid grid-cols-[1.5rem_repeat(5,2rem)] gap-1 items-center">
+                        <div className="text-sm font-semibold h-8 flex items-center justify-center">{row + 1}</div>
+                        {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
+                          const selected = (currentQuestion.correctAnswer as string[] | undefined)?.[row] === col;
+                          return (
+                            <button
+                              key={col}
+                              type="button"
+                              onClick={() => {
+                                const current = [...((currentQuestion.correctAnswer as string[]) || [])];
+                                current[row] = col;
+                                setCurrentQuestion({ ...currentQuestion, correctAnswer: current });
+                              }}
+                              className={`h-8 w-8 rounded-md border-2 font-bold transition flex items-center justify-center ${
+                                selected ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 dark:border-slate-600'
+                              }`}
+                              aria-pressed={selected}
+                            >
+                              <span className="sr-only">{col}</span>
+                              {selected ? '✓' : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
                 {test?.subject?.slug === 'mathematics' &&
                   getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) === 3 && (
                     <p className="mt-2 text-xs text-slate-500">
@@ -1347,37 +1351,42 @@ export default function AdminEditTestPage() {
                     {currentQuestion.type === 'matching' && (
                       <div>
                         <label className="block text-sm font-medium mb-2">{t('adminCreateTest.matchingLabel')}</label>
-                        <div className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 text-sm font-semibold mb-2 items-center w-max">
-                          <div className="h-7" />
-                          {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
-                            <div key={c} className="flex items-center justify-center h-7">{c}</div>
-                          ))}
-                        </div>
-                        {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
-                          <div key={row} className="inline-grid grid-cols-[1.5rem_repeat(5,1.75rem)] gap-1 items-center mb-1 w-max">
-                            <div className="text-sm font-semibold h-7 flex items-center justify-center">{row + 1}</div>
-                            {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
-                              const selected = (currentQuestion.correctAnswer as string[] | undefined)?.[row] === col;
-                              return (
-                                <button
-                                  key={col}
-                                  type="button"
-                                  onClick={() => {
-                                    const current = [...((currentQuestion.correctAnswer as string[]) || [])];
-                                    current[row] = col;
-                                    setCurrentQuestion({ ...currentQuestion, correctAnswer: current });
-                                  }}
-                                  className={`h-10 w-10 rounded-lg border-2 font-bold transition ${
-                                    selected ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 dark:border-slate-600'
-                                  }`}
-                                  aria-pressed={selected}
-                                >
-                                  <span className="sr-only">{col}</span>
-                                </button>
-                              );
-                            })}
+                        <div className="overflow-x-auto">
+                          <div className="grid gap-1 w-max">
+                            <div className="grid grid-cols-[1.5rem_repeat(5,2rem)] gap-1 text-sm font-semibold items-center">
+                              <div className="h-8" />
+                              {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (
+                                <div key={c} className="flex items-center justify-center h-8">{c}</div>
+                              ))}
+                            </div>
+                            {Array.from({ length: getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) }, (_, row) => row).map((row) => (
+                              <div key={row} className="grid grid-cols-[1.5rem_repeat(5,2rem)] gap-1 items-center">
+                                <div className="text-sm font-semibold h-8 flex items-center justify-center">{row + 1}</div>
+                                {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
+                                  const selected = (currentQuestion.correctAnswer as string[] | undefined)?.[row] === col;
+                                  return (
+                                    <button
+                                      key={col}
+                                      type="button"
+                                      onClick={() => {
+                                        const current = [...((currentQuestion.correctAnswer as string[]) || [])];
+                                        current[row] = col;
+                                        setCurrentQuestion({ ...currentQuestion, correctAnswer: current });
+                                      }}
+                                      className={`h-8 w-8 rounded-md border-2 font-bold transition flex items-center justify-center ${
+                                        selected ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 dark:border-slate-600'
+                                      }`}
+                                      aria-pressed={selected}
+                                    >
+                                      <span className="sr-only">{col}</span>
+                                      {selected ? '✓' : ''}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        </div>
                         {test?.subject?.slug === 'mathematics' &&
                           getMatchingRowCount(test?.subject?.slug || '', currentQuestion.correctAnswer as string[] | undefined) === 3 && (
                             <p className="mt-2 text-xs text-slate-500">
