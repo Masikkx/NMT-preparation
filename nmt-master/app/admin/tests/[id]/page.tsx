@@ -206,7 +206,7 @@ export default function AdminEditTestPage() {
   };
 
   const handleSave = async () => {
-    const target = test ?? testRef.current;
+    const target = testRef.current ?? test;
     if (!target) return;
     let nextQuestions = target.questions;
     if (editingIndex !== null) {
