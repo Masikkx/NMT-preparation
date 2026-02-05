@@ -140,6 +140,7 @@
     "loading": "Loading test...",
     "pause": "Pause",
     "resume": "Resume",
+    "startOver": "Start Over",
     "submitting": "Submitting...",
     "confirmFinish": "Are you sure you want to finish the test?",
     "pausedMessage": "Test is paused. Click Resume to continue.",

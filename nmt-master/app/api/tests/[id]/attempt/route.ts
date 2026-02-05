@@ -22,7 +22,7 @@ export async function GET(
       where: {
         userId: user.userId,
         testId,
-        status: { in: ['in_progress', 'paused'] },
+        status: 'paused',
       },
       include: {
         userAnswers: true,
@@ -31,7 +31,7 @@ export async function GET(
 
     if (!attempt) {
       return NextResponse.json(
-        { error: 'No in-progress attempt found' },
+        { error: 'No paused attempt found' },
         { status: 404 }
       );
     }
@@ -61,6 +61,26 @@ export async function POST(
     }
 
     const { id: testId } = await params;
+
+    // Reset any unfinished (non-paused) attempts so a new attempt starts clean
+    await prisma.$transaction(async (tx) => {
+      const active = await tx.testAttempt.findMany({
+        where: {
+          userId: user.userId,
+          testId,
+          status: 'in_progress',
+        },
+        select: { id: true },
+      });
+      if (active.length > 0) {
+        const ids = active.map((a) => a.id);
+        await tx.userAnswer.deleteMany({ where: { attemptId: { in: ids } } });
+        await tx.testAttempt.updateMany({
+          where: { id: { in: ids } },
+          data: { status: 'completed', completedAt: new Date() },
+        });
+      }
+    });
 
     // Create new attempt
     const attempt = await prisma.testAttempt.create({
@@ -111,6 +131,18 @@ export async function PUT(
         { error: 'Attempt not found' },
         { status: 404 }
       );
+    }
+
+    if (body.action === 'restart') {
+      await prisma.userAnswer.deleteMany({ where: { attemptId: attempt.id } });
+      const updated = await prisma.testAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: 'completed',
+          completedAt: new Date(),
+        },
+      });
+      return NextResponse.json(updated);
     }
 
     // Update attempt status

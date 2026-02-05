@@ -57,6 +57,8 @@ export default function TestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [fixLeft, setFixLeft] = useState<number | null>(null);
   const [restored, setRestored] = useState(false);
+  const [resumeAttempt, setResumeAttempt] = useState<any>(null);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -145,18 +147,8 @@ export default function TestPage() {
         const res = await fetch(`/api/tests/${testId}/attempt`);
         if (res.ok) {
           const data = await res.json();
-          setAttemptId(data.id);
-          loadAnswersFromAttempt(data);
-          restoreProgress(data.id);
-          if (data.status === 'paused') {
-            setPaused(true);
-            await fetch(`/api/tests/${testId}/attempt`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'in_progress' }),
-            });
-            setPaused(false);
-          }
+          setResumeAttempt(data);
+          setShowResumePrompt(true);
           return;
         }
         const createRes = await fetch(`/api/tests/${testId}/attempt`, {
@@ -278,6 +270,52 @@ export default function TestPage() {
     rebuildCheckState(test, answers);
     setRestored(false);
   }, [test, attemptId, answers, checked]);
+
+  const handleResumePaused = async () => {
+    if (!resumeAttempt) return;
+    setAttemptId(resumeAttempt.id);
+    loadAnswersFromAttempt(resumeAttempt);
+    restoreProgress(resumeAttempt.id);
+    setShowResumePrompt(false);
+    setPaused(true);
+    try {
+      await fetch(`/api/tests/${testId}/attempt`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+    } catch {}
+    setPaused(false);
+  };
+
+  const handleStartOver = async () => {
+    if (resumeAttempt?.id) {
+      try {
+        await fetch(`/api/tests/${testId}/attempt`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'restart' }),
+        });
+        localStorage.removeItem(`attempt_progress_${resumeAttempt.id}`);
+      } catch {}
+    }
+    setResumeAttempt(null);
+    setShowResumePrompt(false);
+    setAnswers({});
+    setChecked({});
+    setStatusMap({});
+    setCorrectTextMap({});
+    setCurrentQuestionIndex(0);
+    if (test) setTimeRemaining(test.estimatedTime * 60);
+
+    const createRes = await fetch(`/api/tests/${testId}/attempt`, {
+      method: 'POST',
+    });
+    if (createRes.ok) {
+      const created = await createRes.json();
+      setAttemptId(created.id);
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -501,6 +539,30 @@ export default function TestPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
+      {showResumePrompt && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 w-full max-w-md shadow-xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-bold mb-2">{t('test.pausedMessage')}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              {t('test.resume')} / {t('test.finishTest')}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleResumePaused}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+              >
+                {t('test.resume')}
+              </button>
+              <button
+                onClick={handleStartOver}
+                className="flex-1 px-4 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 rounded-lg font-semibold"
+              >
+                {t('test.startOver') ?? 'Почати заново'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="max-w-7xl mx-auto px-4 py-4">
         <h1 className="text-2xl font-bold">{test.title}</h1>
