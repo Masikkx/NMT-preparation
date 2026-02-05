@@ -614,11 +614,35 @@ export default function TestPage() {
           {idx + 1}
         </div>
         {q.content && (
-          <h2 className="text-sm sm:text-base font-semibold mb-4 whitespace-pre-line">
-            {q.type === 'matching'
-              ? parts?.prompt || q.content
-              : q.content}
-          </h2>
+          <div className="text-sm sm:text-base font-semibold mb-4 whitespace-pre-line">
+            {q.type === 'matching' ? (
+              parts?.prompt || q.content
+            ) : inlineOptions.hasInline ? (
+              <div className="space-y-1">
+                {(q.content || '')
+                  .split('\n')
+                  .filter((l) => l.trim() !== '')
+                  .map((line, i) => {
+                    const m = line.match(/^([A-ZА-ЯІЇЄҐ])\.\s*(.+)$/);
+                    if (m) {
+                      return (
+                        <div key={`optline-${i}`} className="flex gap-2">
+                          <span className="font-semibold w-5">{m[1]}.</span>
+                          <span className="font-normal">{m[2]}</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={`line-${i}`} className="font-normal">
+                        {line}
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              q.content
+            )}
+          </div>
         )}
         {q.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -839,15 +863,16 @@ export default function TestPage() {
                                   handleAnswerChange(q.id, current);
                                 }}
                                 disabled={!!checked[q.id]}
-                                className={`h-10 w-10 rounded-lg border-2 font-bold transition ${
-                                  isSelected
-                                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                                    : 'border-slate-300 dark:border-slate-600'
-                                }`}
-                                aria-pressed={isSelected}
-                              >
-                                <span className="sr-only">{col}</span>
-                              </button>
+                                  className={`h-10 w-10 rounded-lg border-2 font-bold transition flex items-center justify-center ${
+                                    isSelected
+                                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                      : 'border-slate-300 dark:border-slate-600'
+                                  }`}
+                                  aria-pressed={isSelected}
+                                >
+                                  <span className="sr-only">{col}</span>
+                                  {isSelected ? '✓' : ''}
+                                </button>
                             </label>
                           );
                         })}
