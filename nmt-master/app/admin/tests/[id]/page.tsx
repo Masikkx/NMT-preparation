@@ -41,6 +41,10 @@ export default function AdminEditTestPage() {
   const [error, setError] = useState('');
   const [test, setTest] = useState<TestEdit | null>(null);
   const testRef = useRef<TestEdit | null>(null);
+  const updateTestState = (next: TestEdit | null) => {
+    testRef.current = next;
+    setTest(next);
+  };
   const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
   const [bulkText, setBulkText] = useState('');
   const [bulkError, setBulkError] = useState('');
@@ -186,7 +190,7 @@ export default function AdminEditTestPage() {
         };
       });
 
-      setTest({
+      updateTestState({
         id: data.id,
         title: data.title,
         description: data.description,
@@ -299,16 +303,14 @@ export default function AdminEditTestPage() {
       const nextQuestions = [...test.questions];
       nextQuestions[editingIndex] = { ...normalized };
       const nextTest = { ...test, questions: nextQuestions };
-      testRef.current = nextTest;
-      setTest(nextTest);
+      updateTestState(nextTest);
       setEditingIndex(null);
     } else {
       const nextTest = {
         ...test,
         questions: [...test.questions, { ...normalized }],
       };
-      testRef.current = nextTest;
-      setTest(nextTest);
+      updateTestState(nextTest);
     }
     setCurrentQuestion({
       type: 'single_choice',
@@ -336,8 +338,7 @@ export default function AdminEditTestPage() {
       ...test,
       questions: test.questions.filter((_, i) => i !== index),
     };
-    testRef.current = nextTest;
-    setTest(nextTest);
+    updateTestState(nextTest);
   };
 
   const editQuestion = (index: number) => {
@@ -591,8 +592,7 @@ export default function AdminEditTestPage() {
       ...test,
       questions: [...test.questions, ...parsed],
     };
-    testRef.current = nextTest;
-    setTest(nextTest);
+    updateTestState(nextTest);
     setBulkWarnings((prev) => ({ ...prev, ...nextWarnings }));
     setInputMode('manual');
   };
@@ -638,7 +638,7 @@ export default function AdminEditTestPage() {
             <input
               type="text"
               value={test.title}
-              onChange={(e) => setTest({ ...test, title: e.target.value })}
+              onChange={(e) => updateTestState({ ...test, title: e.target.value })}
               className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
             />
           </div>
@@ -647,7 +647,7 @@ export default function AdminEditTestPage() {
             <label className="block text-sm font-medium mb-2">{t('adminEditTest.description')}</label>
             <textarea
               value={test.description || ''}
-              onChange={(e) => setTest({ ...test, description: e.target.value })}
+              onChange={(e) => updateTestState({ ...test, description: e.target.value })}
               className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
               rows={4}
             />
@@ -658,13 +658,13 @@ export default function AdminEditTestPage() {
               <label className="block text-sm font-medium mb-2">{t('adminEditTest.type')}</label>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setTest({ ...test, type: 'topic' })}
+                  onClick={() => updateTestState({ ...test, type: 'topic' })}
                   className={`px-3 py-2 rounded-lg border ${test.type === 'topic' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 dark:border-slate-600'}`}
                 >
                   {t('adminCreateTest.typeTopic')}
                 </button>
                 <button
-                  onClick={() => setTest({ ...test, type: 'past_nmt' })}
+                  onClick={() => updateTestState({ ...test, type: 'past_nmt' })}
                   className={`px-3 py-2 rounded-lg border ${test.type === 'past_nmt' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 dark:border-slate-600'}`}
                 >
                   {t('adminCreateTest.typeNmt')}
@@ -677,7 +677,7 @@ export default function AdminEditTestPage() {
                 <input
                   type="text"
                   value={test.historyTopicCode || ''}
-                  onChange={(e) => setTest({ ...test, historyTopicCode: e.target.value })}
+                  onChange={(e) => updateTestState({ ...test, historyTopicCode: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
                   placeholder={t('adminCreateTest.historyTopicPlaceholder')}
                 />
@@ -688,7 +688,7 @@ export default function AdminEditTestPage() {
                 <label className="block text-sm font-medium mb-2">{t('adminCreateTest.mathTrack')}</label>
                 <select
                   value={test.mathTrack || ''}
-                  onChange={(e) => setTest({ ...test, mathTrack: e.target.value })}
+                  onChange={(e) => updateTestState({ ...test, mathTrack: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
                 >
                   <option value="">{t('adminCreateTest.mathTrackAll')}</option>
@@ -704,7 +704,7 @@ export default function AdminEditTestPage() {
                 min="1"
                 max="480"
                 value={test.estimatedTime}
-                onChange={(e) => setTest({ ...test, estimatedTime: parseInt(e.target.value) || 1 })}
+                onChange={(e) => updateTestState({ ...test, estimatedTime: parseInt(e.target.value) || 1 })}
                 className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
               />
             </div>
@@ -714,7 +714,7 @@ export default function AdminEditTestPage() {
             <input
               type="checkbox"
               checked={test.isPublished}
-              onChange={(e) => setTest({ ...test, isPublished: e.target.checked })}
+              onChange={(e) => updateTestState({ ...test, isPublished: e.target.checked })}
             />
             {t('adminEditTest.published')}
           </label>
