@@ -148,10 +148,6 @@ export default function AdminEditTestPage() {
     fetchTest();
   }, [user, testId]);
 
-  useEffect(() => {
-    testRef.current = test;
-  }, [test]);
-
   const fetchTest = async () => {
     setLoading(true);
     setError('');
@@ -212,7 +208,7 @@ export default function AdminEditTestPage() {
   const handleSave = async () => {
     const target = testRef.current ?? test;
     if (!target) return;
-    let nextQuestions = target.questions;
+    let nextQuestions = Array.isArray(target.questions) ? target.questions : [];
     if (editingIndex !== null) {
       if (!currentQuestion.text.trim() && !currentQuestion.imageUrl) {
         setError(t('adminCreateTest.validationQuestion'));
@@ -248,6 +244,17 @@ export default function AdminEditTestPage() {
             router.push('/admin/tests');
             return;
           }
+          try {
+            const verify = await fetch(`/api/tests/${target.id}`);
+            if (verify.ok) {
+              const fresh = await verify.json();
+              const freshCount = Array.isArray(fresh?.questions) ? fresh.questions.length : null;
+              if (freshCount !== null && freshCount !== nextQuestions.length) {
+                setError(t('adminEditTest.saveMismatch'));
+                return;
+              }
+            }
+          } catch {}
           router.push('/admin/tests');
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to save test');
@@ -284,6 +291,17 @@ export default function AdminEditTestPage() {
         router.push('/admin/tests');
         return;
       }
+      try {
+        const verify = await fetch(`/api/tests/${target.id}`);
+        if (verify.ok) {
+          const fresh = await verify.json();
+          const freshCount = Array.isArray(fresh?.questions) ? fresh.questions.length : null;
+          if (freshCount !== null && freshCount !== nextQuestions.length) {
+            setError(t('adminEditTest.saveMismatch'));
+            return;
+          }
+        }
+      } catch {}
       router.push('/admin/tests');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save test');
@@ -371,7 +389,8 @@ export default function AdminEditTestPage() {
   };
 
   const parseBulkText = () => {
-    if (!test) return;
+    const base = testRef.current ?? test;
+    if (!base) return;
     setBulkError('');
     setBulkWarnings({});
     if (editingIndex !== null) {
@@ -468,7 +487,7 @@ export default function AdminEditTestPage() {
     flushBlock();
 
     const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
-    const subjectSlug = test.subject?.slug || '';
+    const subjectSlug = base.subject?.slug || '';
 
     const parsed: EditQuestion[] = [];
     const warnings: Record<number, string> = {};
@@ -579,7 +598,7 @@ export default function AdminEditTestPage() {
       return;
     }
 
-    const offset = test.questions.length;
+    const offset = base.questions.length;
     const nextWarnings: Record<number, string> = {};
     Object.keys(warnings).forEach((key) => {
       const idx = Number(key);
@@ -589,8 +608,8 @@ export default function AdminEditTestPage() {
     });
 
     const nextTest = {
-      ...test,
-      questions: [...test.questions, ...parsed],
+      ...base,
+      questions: [...base.questions, ...parsed],
     };
     updateTestState(nextTest);
     setBulkWarnings((prev) => ({ ...prev, ...nextWarnings }));
