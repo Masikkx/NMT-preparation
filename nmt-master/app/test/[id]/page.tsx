@@ -471,6 +471,26 @@ export default function TestPage() {
     }
   };
 
+  useEffect(() => {
+    if (viewMode !== 'scroll') return;
+    const elements = Array.from(document.querySelectorAll('[data-question-index]')) as HTMLElement[];
+    if (elements.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => (b.intersectionRatio - a.intersectionRatio));
+        if (visible.length === 0) return;
+        const top = visible[0].target as HTMLElement;
+        const idx = Number(top.dataset.questionIndex);
+        if (!Number.isNaN(idx)) setCurrentQuestionIndex(idx);
+      },
+      { rootMargin: '-20% 0px -60% 0px', threshold: [0.1, 0.25, 0.5, 0.75] }
+    );
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [viewMode, test?.questions.length]);
+
   if (loading || !test) {
     return (
       <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
@@ -545,25 +565,6 @@ export default function TestPage() {
   };
   const optionLetters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
 
-  useEffect(() => {
-    if (viewMode !== 'scroll') return;
-    const elements = Array.from(document.querySelectorAll('[data-question-index]')) as HTMLElement[];
-    if (elements.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => (b.intersectionRatio - a.intersectionRatio));
-        if (visible.length === 0) return;
-        const top = visible[0].target as HTMLElement;
-        const idx = Number(top.dataset.questionIndex);
-        if (!Number.isNaN(idx)) setCurrentQuestionIndex(idx);
-      },
-      { rootMargin: '-20% 0px -60% 0px', threshold: [0.1, 0.25, 0.5, 0.75] }
-    );
-    elements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [viewMode, test?.questions.length]);
 
   const getMatchingLists = (content: string) => {
     const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);

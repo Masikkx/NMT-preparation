@@ -96,6 +96,7 @@ input,
 textarea,
 select {
   font-family: inherit;
+  text-transform: none;
 }
 
 input:focus,
