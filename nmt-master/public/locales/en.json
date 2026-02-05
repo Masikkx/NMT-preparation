@@ -442,6 +442,7 @@
     "save": "Save",
     "forceSave": "Force Save",
     "forceSaving": "Force saving...",
+    "forceRecreateConfirm": "Force save will create a NEW test and delete the old one. Continue?",
     "cancel": "Cancel",
     "editQuestion": "Edit",
     "updateQuestion": "Update Question",
