@@ -42,6 +42,7 @@ export interface Answer {
   questionId: string;
   type: string;
   content: string;
+  imageUrl?: string | null;
   isCorrect: boolean;
   order?: number;
   matchingPair?: string;

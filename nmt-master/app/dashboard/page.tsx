@@ -90,17 +90,29 @@ export default function DashboardPage() {
     return { slug, result: match || null };
   });
 
+  const getDayKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const getStreak = () => {
     const days = new Set<string>();
     results.forEach((r) => {
-      const d = new Date(r.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      days.add(key);
+      days.add(getDayKey(new Date(r.createdAt)));
     });
+
+    const today = new Date();
+    const todayKey = getDayKey(today);
+    let cursor = today;
+
+    if (!days.has(todayKey)) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (!days.has(getDayKey(yesterday))) return 0;
+      cursor = yesterday;
+    }
+
     let streak = 0;
-    let cursor = new Date();
     for (;;) {
-      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+      const key = getDayKey(cursor);
       if (!days.has(key)) break;
       streak += 1;
       cursor.setDate(cursor.getDate() - 1);
@@ -119,15 +131,15 @@ export default function DashboardPage() {
   const last7 = (() => {
     const days = new Set<string>();
     results.forEach((r) => {
-      const d = new Date(r.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      days.add(key);
+      days.add(getDayKey(new Date(r.createdAt)));
     });
-    const arr: { key: string; active: boolean }[] = [];
+    const locale = lang === 'uk' ? 'uk-UA' : 'en-US';
+    const weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+    const arr: { key: string; active: boolean; label: string }[] = [];
     const cursor = new Date();
     for (let i = 0; i < 7; i++) {
-      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-      arr.unshift({ key, active: days.has(key) });
+      const key = getDayKey(cursor);
+      arr.unshift({ key, active: days.has(key), label: weekdayFmt.format(cursor) });
       cursor.setDate(cursor.getDate() - 1);
     }
     return arr;
@@ -280,7 +292,7 @@ export default function DashboardPage() {
                       : 'bg-slate-100 border-slate-200 text-slate-400'
                   }`}
                 >
-                  {idx + 1}
+                  {d.label}
                 </div>
               ))}
             </div>

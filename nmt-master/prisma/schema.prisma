@@ -116,6 +116,7 @@ model Answer {
   questionId  String
   type        String   // "single_choice", "multiple", "text"
   content     String   // The answer text/option
+  imageUrl    String?
   isCorrect   Boolean  @default(false)
   order       Int?     // For matching pairs or multiple choice
   matchingPair String? // For matching type questions (ID of paired answer)
