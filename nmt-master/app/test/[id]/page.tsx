@@ -1072,6 +1072,11 @@ export default function TestPage() {
               </div>
             ) : inlineOptions.hasInline ? (
               <div className="space-y-2">
+                {inlineOptions.prompt && (
+                  <div className="font-semibold text-sm sm:text-lg">
+                    {renderRichText(inlineOptions.prompt)}
+                  </div>
+                )}
                 {splitContentWithImages(q.content || '')
                   .filter((block) => block.type === 'image')
                   .map((block, i) => (
@@ -1084,11 +1089,6 @@ export default function TestPage() {
                       style={{ width: block.width ? `${block.width}px` : undefined, maxWidth: '100%', height: 'auto' }}
                     />
                   ))}
-                {inlineOptions.prompt && (
-                  <div className="font-semibold text-sm sm:text-lg">
-                    {renderRichText(inlineOptions.prompt)}
-                  </div>
-                )}
                 <div className="space-y-1">
                   {inlineOptions.options.map((opt, optIdx) => (
                     <div key={`opt-${optIdx}`} className="flex gap-2">
