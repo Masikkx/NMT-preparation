@@ -982,7 +982,7 @@ export default function TestPage() {
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => !/^\[(?:image|img)\s*:\s*[^\]]+\]$/i.test(l));
-    const optionRegex = /^([A-ZА-ЯІЇЄҐ])(?:[.)]|:)?\s*(.+)$/;
+    const optionRegex = /^([АБВГДЕЄA-E])(?:[.)]|:)\s*(.+)$/;
     const options: string[] = [];
     const promptLines: string[] = [];
     let lastOption = -1;
