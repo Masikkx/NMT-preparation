@@ -687,8 +687,14 @@ export default function TestPage() {
         });
       }
       if (!res.ok) {
-        const msg = await res.text().catch(() => '');
-        throw new Error(msg || 'Save failed');
+        let msg = '';
+        try {
+          const data = await res.json();
+          msg = data?.details || data?.error || '';
+        } catch {
+          msg = await res.text().catch(() => '');
+        }
+        throw new Error(msg || `Save failed (${res.status})`);
       }
       setTest(nextTest);
       setShowEditModal(false);
@@ -697,9 +703,10 @@ export default function TestPage() {
         return;
       }
       await fetchTest();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving edited question:', error);
-      setEditSaveError('Не вдалося зберегти зміни. Спробуйте ще раз.');
+      const msg = String(error?.message || error || '').trim();
+      setEditSaveError(msg ? `Помилка збереження: ${msg}` : 'Не вдалося зберегти зміни. Спробуйте ще раз.');
       alert('Не вдалося зберегти зміни. Спробуйте ще раз.');
     }
   };
