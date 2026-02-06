@@ -522,12 +522,16 @@ export default function AdminEditTestPage() {
         .split('\n')
         .map((l) => l.replace(/[ \t]+/g, ' ').trim());
       const out: string[] = [];
+      const watermarkRegex = /(Український центр оцінювання якості освіти|©)/i;
       const isQuestionStart = (line: string) => /^\d+\.\s/.test(line);
       const isOptionStart = (line: string) => /^[A-ZА-ЯІЇЄҐ](?:[.)]|:)?\s+/.test(line);
       const isAnswersHeader = (line: string) => /^(ВІДПОВІДІ|ANSWERS)/i.test(line);
+      const isMathFragment = (line: string) =>
+        /^([0-9]+|[+\-−*/=^(){}\[\]∙·]|[xX𝑥])$/.test(line);
 
       for (const line of lines) {
         if (!line) continue;
+        if (watermarkRegex.test(line)) continue;
         if (isAnswersHeader(line)) {
           out.push('ВІДПОВІДІ');
           continue;
@@ -541,9 +545,13 @@ export default function AdminEditTestPage() {
           continue;
         }
         const prev = out[out.length - 1];
-        out[out.length - 1] = prev.endsWith('-')
-          ? `${prev.slice(0, -1)}${line}`
-          : `${prev} ${line}`;
+        if (isMathFragment(line) || isMathFragment(prev.slice(-1))) {
+          out[out.length - 1] = `${prev}${line}`;
+        } else {
+          out[out.length - 1] = prev.endsWith('-')
+            ? `${prev.slice(0, -1)}${line}`
+            : `${prev} ${line}`;
+        }
       }
       return out.join('\n').trim();
     };

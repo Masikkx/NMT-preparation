@@ -61,6 +61,15 @@ export default function TestPage() {
   const [resumeAttempt, setResumeAttempt] = useState<any>(null);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [viewMode, setViewMode] = useState<'paged' | 'scroll'>('paged');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editQuestionId, setEditQuestionId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editOptions, setEditOptions] = useState<string[]>([]);
+  const [editCorrectSingle, setEditCorrectSingle] = useState(0);
+  const [editCorrectWritten, setEditCorrectWritten] = useState('');
+  const [editCorrectMatching, setEditCorrectMatching] = useState<string[]>([]);
+  const [editCorrectSelectThree, setEditCorrectSelectThree] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -471,6 +480,153 @@ export default function TestPage() {
     }
   };
 
+  const isAdmin = user?.role === 'admin';
+
+  const uploadQuestionImage = async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/uploads/question-image', {
+      method: 'POST',
+      body: form,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.url as string;
+    }
+    return '';
+  };
+
+  const openEditForQuestion = (q: Question) => {
+    const sortedAnswers = [...q.answers].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const options = sortedAnswers.map((a) => a.content ?? '');
+    const correctIndex = sortedAnswers.findIndex((a) => a.isCorrect);
+    const correctText = sortedAnswers.find((a) => a.isCorrect)?.content ?? '';
+    const matchingPairs = sortedAnswers.map((a) => (a.matchingPair ?? '')).filter((v) => v !== undefined);
+    const selectThree = sortedAnswers.filter((a) => a.isCorrect).map((a) => String(a.order ?? ''));
+    setEditQuestionId(q.id);
+    setEditText(q.content || '');
+    setEditImageUrl(q.imageUrl || '');
+    setEditOptions(options.length > 0 ? options : ['', '', '', '']);
+    setEditCorrectSingle(correctIndex >= 0 ? correctIndex : 0);
+    setEditCorrectWritten(correctText);
+    setEditCorrectMatching(matchingPairs.length > 0 ? matchingPairs : ['', '', '', '']);
+    setEditCorrectSelectThree(selectThree.length > 0 ? selectThree : ['', '', '']);
+    setShowEditModal(true);
+  };
+
+  const buildEditableQuestionsPayload = (nextTest: Test) => {
+    return nextTest.questions.map((q) => {
+      const sorted = [...q.answers].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      if (q.type === 'written') {
+        const correct = sorted.find((a) => a.isCorrect)?.content ?? '';
+        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', correctAnswer: correct };
+      }
+      if (q.type === 'matching') {
+        const mapping = sorted.map((a) => a.matchingPair ?? '');
+        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', correctAnswer: mapping };
+      }
+      if (q.type === 'select_three') {
+        const correct = sorted.filter((a) => a.isCorrect).map((a) => String(a.order ?? ''));
+        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', options: sorted.map((a) => a.content ?? ''), correctAnswer: correct };
+      }
+      if (q.type === 'multiple_answers') {
+        const correct = sorted
+          .map((a, idx) => (a.isCorrect ? idx : null))
+          .filter((v) => v !== null) as number[];
+        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', options: sorted.map((a) => a.content ?? ''), correctAnswer: correct };
+      }
+      return {
+        type: q.type,
+        text: q.content,
+        imageUrl: q.imageUrl || '',
+        options: sorted.map((a) => a.content ?? ''),
+        correctAnswer: sorted.findIndex((a) => a.isCorrect),
+      };
+    });
+  };
+
+  const saveEditedQuestion = async () => {
+    if (!test || !editQuestionId) return;
+    const nextTest: Test = {
+      ...test,
+      questions: test.questions.map((q) => {
+        if (q.id !== editQuestionId) return q;
+        const nextAnswers = (() => {
+          if (q.type === 'written') {
+            return [
+              {
+                ...q.answers[0],
+                content: editCorrectWritten,
+                isCorrect: true,
+              },
+            ];
+          }
+          if (q.type === 'matching') {
+            return q.answers
+              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+              .map((a, idx) => ({
+                ...a,
+                matchingPair: editCorrectMatching[idx] ?? '',
+                isCorrect: true,
+              }));
+          }
+          if (q.type === 'select_three') {
+            return editOptions.map((opt, idx) => ({
+              ...q.answers[idx],
+              content: opt,
+              order: idx + 1,
+              isCorrect: editCorrectSelectThree.includes(String(idx + 1)),
+            }));
+          }
+          if (q.type === 'multiple_answers') {
+            return editOptions.map((opt, idx) => ({
+              ...q.answers[idx],
+              content: opt,
+              order: idx,
+              isCorrect: Array.isArray(editCorrectSelectThree) ? editCorrectSelectThree.includes(String(idx)) : false,
+            }));
+          }
+          return editOptions.map((opt, idx) => ({
+            ...q.answers[idx],
+            content: opt,
+            order: idx,
+            isCorrect: idx === editCorrectSingle,
+          }));
+        })();
+
+        return {
+          ...q,
+          content: editText,
+          imageUrl: editImageUrl || null,
+          answers: nextAnswers,
+        };
+      }),
+    };
+
+    setTest(nextTest);
+    setShowEditModal(false);
+
+    try {
+      await fetch(`/api/tests/${testId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: nextTest.title,
+          description: '',
+          type: nextTest.type,
+          historyTopicCode: null,
+          mathTrack: null,
+          image: null,
+          estimatedTime: nextTest.estimatedTime,
+          isPublished: true,
+          questions: buildEditableQuestionsPayload(nextTest),
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving edited question:', error);
+    }
+  };
+
   useEffect(() => {
     if (viewMode !== 'scroll') return;
     const elements = Array.from(document.querySelectorAll('[data-question-index]')) as HTMLElement[];
@@ -631,8 +787,19 @@ export default function TestPage() {
         key={q.id}
         id={`q-${q.id}`}
         data-question-index={idx}
-        className="bg-white dark:bg-slate-800 rounded-lg p-4 sm:p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-4 sm:mb-6"
+        className="relative bg-white dark:bg-slate-800 rounded-lg p-4 sm:p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-4 sm:mb-6"
       >
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => openEditForQuestion(q)}
+            className="absolute top-3 right-3 h-9 w-9 rounded-full bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 shadow-sm flex items-center justify-center"
+            aria-label="Редагувати питання"
+            title="Редагувати"
+          >
+            <span className="text-lg leading-none">✏️</span>
+          </button>
+        )}
         <div className="text-base sm:text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">
           {idx + 1}
         </div>
@@ -950,6 +1117,9 @@ export default function TestPage() {
   };
   const showMathMaterials = test?.subject?.slug === 'mathematics';
   const materialsUrl = 'https://testportal.gov.ua/wp-content/uploads/2022/04/ZNO_Math_dovidkovy-materialy.pdf';
+  const editTarget = editQuestionId
+    ? test.questions.find((q) => q.id === editQuestionId) || null
+    : null;
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
@@ -972,6 +1142,171 @@ export default function TestPage() {
                 className="flex-1 px-4 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 rounded-lg font-semibold"
               >
                 {t('test.startOver') ?? 'Почати заново'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showEditModal && editTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-5 w-full max-w-2xl shadow-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold mb-1">Редагування питання</h3>
+                <p className="text-xs text-slate-500">Тип: {editTarget.type}</p>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded"
+              >
+                Закрити
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Текст питання</label>
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Зображення</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={editImageUrl}
+                    onChange={(e) => setEditImageUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const url = await uploadQuestionImage(file);
+                      if (url) setEditImageUrl(url);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {(editTarget.type === 'single_choice' || editTarget.type === 'multiple_answers' || editTarget.type === 'select_three') && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Варіанти</label>
+                  <div className="space-y-2">
+                    {editOptions.map((opt, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="text-xs w-6 text-center">{idx + 1}</span>
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const next = [...editOptions];
+                            next[idx] = e.target.value;
+                            setEditOptions(next);
+                          }}
+                          className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {editTarget.type === 'single_choice' && (
+                    <div className="mt-3">
+                      <label className="block text-xs font-semibold mb-1">Правильна відповідь</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {editOptions.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setEditCorrectSingle(idx)}
+                            className={`h-8 w-8 rounded border-2 font-bold ${
+                              editCorrectSingle === idx
+                                ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                : 'border-slate-300 dark:border-slate-600'
+                            }`}
+                          >
+                            {idx + 1}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {editTarget.type === 'select_three' && (
+                    <div className="mt-3 grid grid-cols-3 gap-3">
+                      {[0, 1, 2].map((idx) => (
+                        <input
+                          key={idx}
+                          type="number"
+                          min="1"
+                          max="7"
+                          value={editCorrectSelectThree[idx] || ''}
+                          onChange={(e) => {
+                            const next = [...editCorrectSelectThree];
+                            next[idx] = e.target.value;
+                            setEditCorrectSelectThree(next);
+                          }}
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {editTarget.type === 'written' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Правильна відповідь</label>
+                  <input
+                    type="text"
+                    value={editCorrectWritten}
+                    onChange={(e) => setEditCorrectWritten(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                  />
+                </div>
+              )}
+
+              {editTarget.type === 'matching' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Відповідність (1-4)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Array.from({ length: 4 }, (_, idx) => (
+                      <input
+                        key={idx}
+                        type="text"
+                        value={editCorrectMatching[idx] || ''}
+                        onChange={(e) => {
+                          const next = [...editCorrectMatching];
+                          next[idx] = e.target.value;
+                          setEditCorrectMatching(next);
+                        }}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                        placeholder={`Ряд ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={saveEditedQuestion}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+              >
+                Зберегти
+              </button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 px-4 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 rounded-lg font-semibold"
+              >
+                Скасувати
               </button>
             </div>
           </div>
@@ -1001,7 +1336,13 @@ export default function TestPage() {
           {/* Main Content */}
           <div className="lg:col-span-3">
             {/* Mobile Actions */}
-            <div className="lg:hidden mb-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div
+              className={`lg:hidden mb-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                viewMode === 'scroll'
+                  ? 'sticky top-0 z-40 bg-white/90 dark:bg-slate-800/90 backdrop-blur'
+                  : ''
+              }`}
+            >
               <div className="text-sm font-semibold">
                 {t('test.timeRemaining')}: {formatTime(timeRemaining)}
               </div>
