@@ -71,6 +71,7 @@ export default function TestPage() {
   const [editCorrectWritten, setEditCorrectWritten] = useState('');
   const [editCorrectMatching, setEditCorrectMatching] = useState<string[]>([]);
   const [editCorrectSelectThree, setEditCorrectSelectThree] = useState<string[]>([]);
+  const [editSaveError, setEditSaveError] = useState<string>('');
   const editTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -575,26 +576,31 @@ export default function TestPage() {
       }
       if (q.type === 'select_three') {
         const correct = sorted.filter((a) => a.isCorrect).map((a) => String(a.order ?? ''));
-        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', options: sorted.map((a) => a.content ?? ''), correctAnswer: correct };
+        const options = sorted.map((a) => a.content ?? '');
+        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', options, correctAnswer: correct };
       }
       if (q.type === 'multiple_answers') {
         const correct = sorted
           .map((a, idx) => (a.isCorrect ? idx : null))
           .filter((v) => v !== null) as number[];
-        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', options: sorted.map((a) => a.content ?? ''), correctAnswer: correct };
+        const options = sorted.map((a) => a.content ?? '');
+        return { type: q.type, text: q.content, imageUrl: q.imageUrl || '', options, correctAnswer: correct };
       }
+      const options = sorted.map((a) => a.content ?? '');
+      const correctIdx = sorted.findIndex((a) => a.isCorrect);
       return {
         type: q.type,
         text: q.content,
         imageUrl: q.imageUrl || '',
-        options: sorted.map((a) => a.content ?? ''),
-        correctAnswer: sorted.findIndex((a) => a.isCorrect),
+        options,
+        correctAnswer: correctIdx >= 0 ? correctIdx : 0,
       };
     });
   };
 
   const saveEditedQuestion = async (forceReload = false) => {
     if (!test || !editQuestionId) return;
+    setEditSaveError('');
     const nextTest: Test = {
       ...test,
       questions: test.questions.map((q) => {
@@ -654,23 +660,36 @@ export default function TestPage() {
       }),
     };
 
+    const payload = {
+      title: nextTest.title,
+      description: '',
+      type: nextTest.type,
+      historyTopicCode: null,
+      mathTrack: null,
+      image: null,
+      estimatedTime: nextTest.estimatedTime,
+      isPublished: true,
+      questions: buildEditableQuestionsPayload(nextTest),
+    };
+
     try {
-      const res = await fetch(`/api/tests/${testId}`, {
+      let res = await fetch(`/api/tests/${testId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: nextTest.title,
-          description: '',
-          type: nextTest.type,
-          historyTopicCode: null,
-          mathTrack: null,
-          image: null,
-          estimatedTime: nextTest.estimatedTime,
-          isPublished: true,
-          questions: buildEditableQuestionsPayload(nextTest),
-        }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error('Save failed');
+      if (!res.ok) {
+        // retry once
+        res = await fetch(`/api/tests/${testId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(msg || 'Save failed');
+      }
       setTest(nextTest);
       setShowEditModal(false);
       if (forceReload) {
@@ -680,6 +699,7 @@ export default function TestPage() {
       await fetchTest();
     } catch (error) {
       console.error('Error saving edited question:', error);
+      setEditSaveError('Не вдалося зберегти зміни. Спробуйте ще раз.');
       alert('Не вдалося зберегти зміни. Спробуйте ще раз.');
     }
   };
@@ -1737,6 +1757,9 @@ export default function TestPage() {
                 Скасувати
               </button>
             </div>
+            {editSaveError && (
+              <div className="mt-3 text-sm text-red-600">{editSaveError}</div>
+            )}
           </div>
         </div>
       )}
