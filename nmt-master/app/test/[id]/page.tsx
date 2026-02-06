@@ -498,18 +498,27 @@ export default function TestPage() {
     return '';
   };
 
-  const getImageToken = (text: string) => {
-    const match = text.match(/\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/i);
-    if (!match) return null;
-    return { url: match[1].trim(), width: match[2] ? Number(match[2]) : null, full: match[0] };
+  const getImageTokens = (text: string) => {
+    const tokens: Array<{ url: string; width: number | null; full: string }> = [];
+    const regex = /\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/gi;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      tokens.push({
+        url: match[1].trim(),
+        width: match[2] ? Number(match[2]) : null,
+        full: match[0],
+      });
+    }
+    return tokens;
+  };
+
+  const updateImageToken = (text: string, full: string, url: string, width?: number | null) => {
+    const token = width ? `[image: ${url}|w=${width}]` : `[image: ${url}]`;
+    return text.includes(full) ? text.replace(full, token) : text;
   };
 
   const upsertImageToken = (text: string, url: string, width?: number | null) => {
     const token = width ? `[image: ${url}|w=${width}]` : `[image: ${url}]`;
-    const existing = text.match(/\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/i);
-    if (existing) {
-      return text.replace(existing[0], token);
-    }
     return text ? `${text}\n${token}` : token;
   };
 
@@ -1517,33 +1526,39 @@ export default function TestPage() {
                   {renderMathText(editText)}
                 </div>
                 {(() => {
-                  const token = getImageToken(editText || '');
-                  if (!token?.url) return null;
-                  const width = token.width ?? 360;
+                  const tokens = getImageTokens(editText || '');
+                  if (tokens.length === 0) return null;
                   return (
-                    <div className="mt-3 space-y-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={token.url}
-                        alt="preview"
-                        style={{ width, maxWidth: '100%', height: 'auto' }}
-                        className="rounded border border-slate-200 dark:border-slate-700"
-                      />
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs text-slate-500">Ширина: {width}px</label>
-                        <input
-                          type="range"
-                          min={200}
-                          max={900}
-                          step={20}
-                          value={width}
-                          onChange={(e) => {
-                            const nextWidth = Number(e.target.value);
-                            const nextText = upsertImageToken(editText || '', token.url, nextWidth);
-                            setEditText(nextText);
-                          }}
-                        />
-                      </div>
+                    <div className="mt-3 space-y-3">
+                      {tokens.map((token, idx) => {
+                        const width = token.width ?? 360;
+                        return (
+                          <div key={`${token.url}-${idx}`} className="space-y-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={token.url}
+                              alt="preview"
+                              style={{ width, maxWidth: '100%', height: 'auto' }}
+                              className="rounded border border-slate-200 dark:border-slate-700"
+                            />
+                            <div className="flex items-center gap-3">
+                              <label className="text-xs text-slate-500">Ширина: {width}px</label>
+                              <input
+                                type="range"
+                                min={200}
+                                max={900}
+                                step={20}
+                                value={width}
+                                onChange={(e) => {
+                                  const nextWidth = Number(e.target.value);
+                                  const nextText = updateImageToken(editText || '', token.full, token.url, nextWidth);
+                                  setEditText(nextText);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })()}
