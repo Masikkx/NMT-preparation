@@ -130,8 +130,9 @@ export async function POST(
       subjectSlug === 'math' ||
       subjectName.includes('матем') ||
       subjectName.includes('math');
+    const mathScore = Math.round(earnedPoints);
     const scaledScore = isMath
-      ? convertToNMTScale(correctCount, 'mathematics')
+      ? convertToNMTScale(mathScore, 'mathematics')
       : earnedPoints;
     const timeSpent = body.timeSpent || 0;
 
