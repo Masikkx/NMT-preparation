@@ -593,7 +593,7 @@ export default function TestPage() {
     });
   };
 
-  const saveEditedQuestion = async () => {
+  const saveEditedQuestion = async (forceReload = false) => {
     if (!test || !editQuestionId) return;
     const nextTest: Test = {
       ...test,
@@ -654,9 +654,6 @@ export default function TestPage() {
       }),
     };
 
-    setTest(nextTest);
-    setShowEditModal(false);
-
     try {
       const res = await fetch(`/api/tests/${testId}`, {
         method: 'PUT',
@@ -673,11 +670,17 @@ export default function TestPage() {
           questions: buildEditableQuestionsPayload(nextTest),
         }),
       });
-      if (res.ok) {
-        await fetchTest();
+      if (!res.ok) throw new Error('Save failed');
+      setTest(nextTest);
+      setShowEditModal(false);
+      if (forceReload) {
+        window.location.reload();
+        return;
       }
+      await fetchTest();
     } catch (error) {
       console.error('Error saving edited question:', error);
+      alert('Не вдалося зберегти зміни. Спробуйте ще раз.');
     }
   };
 
@@ -1716,10 +1719,16 @@ export default function TestPage() {
 
             <div className="mt-5 flex gap-3">
               <button
-                onClick={saveEditedQuestion}
+                onClick={() => saveEditedQuestion(false)}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
               >
                 Зберегти
+              </button>
+              <button
+                onClick={() => saveEditedQuestion(true)}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold"
+              >
+                Примусово зберегти
               </button>
               <button
                 onClick={() => setShowEditModal(false)}
