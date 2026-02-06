@@ -1882,9 +1882,10 @@ export default function TestPage() {
             <div
               className={`lg:hidden mb-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
                 viewMode === 'scroll'
-                  ? 'sticky top-0 z-40 bg-white/90 dark:bg-slate-800/90 backdrop-blur'
+                  ? 'sticky z-50 bg-white/90 dark:bg-slate-800/90 backdrop-blur'
                   : ''
               }`}
+              style={viewMode === 'scroll' ? { top: 'calc(env(safe-area-inset-top) + 8px)' } : undefined}
             >
               <div className="text-sm font-semibold">
                 {t('test.timeRemaining')}: {formatTime(timeRemaining)}
