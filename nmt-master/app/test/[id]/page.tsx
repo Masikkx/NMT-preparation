@@ -1589,6 +1589,15 @@ export default function TestPage() {
                       </div>
                     ))}
                   </div>
+                  {editTarget.type === 'single_choice' && editOptions.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setEditOptions((prev) => [...prev, ''])}
+                      className="mt-2 px-3 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      Додати варіант
+                    </button>
+                  )}
                   {editTarget.type === 'single_choice' && (
                     <div className="mt-3">
                       <label className="block text-xs font-semibold mb-1">Правильна відповідь</label>
