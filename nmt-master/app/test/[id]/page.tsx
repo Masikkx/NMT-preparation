@@ -1108,7 +1108,7 @@ export default function TestPage() {
                     const isCorrect = isChecked && !!answer.isCorrect;
                     const isWrong = isChecked && selected && !answer.isCorrect;
                     const badgeClass = isCorrect
-                      ? 'border-green-500 text-green-700 bg-green-50 dark:bg-green-900/30'
+                      ? 'border-green-600 text-green-800 bg-green-100 dark:bg-green-900/50'
                       : isWrong
                       ? 'border-red-500 text-red-700 bg-red-50 dark:bg-red-900/30'
                       : selected
@@ -1153,7 +1153,7 @@ export default function TestPage() {
               className={`w-full px-4 py-2 sm:py-3 border-2 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
                 checked[q.id]
                   ? statusMap[q.id] === 'correct'
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                    ? 'border-green-600 bg-green-100 dark:bg-green-900/50'
                     : statusMap[q.id] === 'partial'
                     ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
                     : 'border-red-500 bg-red-50 dark:bg-red-900/30'
@@ -1186,7 +1186,7 @@ export default function TestPage() {
                     const isWrong = isChecked && val && !correctSelectThree.includes(String(val));
                     const inputClass = isChecked
                       ? isCorrect
-                        ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                        ? 'border-green-600 bg-green-100 dark:bg-green-900/50'
                         : isWrong
                         ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
                         : 'border-slate-300 dark:border-slate-600'
@@ -1275,11 +1275,11 @@ export default function TestPage() {
                           const isWrong = isChecked && isSelected && correct !== col;
                           const isMissed = isChecked && !isSelected && correct === col;
                           const cellClass = isCorrect
-                            ? 'bg-green-100 dark:bg-green-900/30'
+                            ? 'bg-green-200 dark:bg-green-900/50'
                             : isWrong
                             ? 'bg-red-100 dark:bg-red-900/30'
                             : isMissed
-                            ? 'bg-green-50 dark:bg-green-900/10'
+                            ? 'bg-green-100 dark:bg-green-900/20'
                             : '';
                           return (
                             <label
