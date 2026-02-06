@@ -1212,7 +1212,20 @@ export default function TestPage() {
             </div>
           )}
 
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          {viewMode === 'paged' && (
+            <>
+              <button
+                onClick={handlePreviousQuestion}
+                disabled={currentQuestionIndex === 0 || paused}
+                className="h-10 w-10 rounded-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center"
+                aria-label={t('test.previous')}
+                title={t('test.previous')}
+              >
+                ←
+              </button>
+            </>
+          )}
           <button
             onClick={() => checkAnswerForQuestion(q)}
             disabled={getCheckDisabled(q)}
@@ -1220,6 +1233,19 @@ export default function TestPage() {
           >
             {t('test.checkAnswer')}
           </button>
+          {viewMode === 'paged' && (
+            <>
+              <button
+                onClick={handleNextQuestion}
+                disabled={currentQuestionIndex === test.questions.length - 1 || paused}
+                className="h-10 w-10 rounded-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center"
+                aria-label={t('test.next')}
+                title={t('test.next')}
+              >
+                →
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
