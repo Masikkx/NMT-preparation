@@ -273,3 +273,8 @@ input[type="file"]::file-selector-button:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* KaTeX display spacing */
+.katex-display {
+  margin: 0.2em 0;
+}
