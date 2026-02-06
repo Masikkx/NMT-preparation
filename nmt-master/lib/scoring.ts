@@ -92,6 +92,20 @@ export function checkAnswer(
   userAnswer: string | string[],
   correctAnswers: string[]
 ): { isCorrect: boolean; partialCredit: boolean } {
+  const normalizeWritten = (value: string) =>
+    value
+      .trim()
+      .replace(/\s+/g, '')
+      .replace(/[−–—]/g, '-')
+      .replace(',', '.');
+  const toNumber = (value: string) => {
+    const normalized = normalizeWritten(value);
+    if (!normalized) return null;
+    if (!/^-?\d+(?:\.\d+)?$/.test(normalized)) return null;
+    const num = Number(normalized);
+    return Number.isFinite(num) ? num : null;
+  };
+
   switch (questionType) {
     case 'single_choice':
       return {
@@ -103,11 +117,20 @@ export function checkAnswer(
       if (!correctAnswers[0]) {
         return { isCorrect: false, partialCredit: false };
       }
+      const userNormalized = normalizeWritten(String(userAnswer));
+      const correctNormalized = normalizeWritten(correctAnswers[0]);
+      const userNum = toNumber(String(userAnswer));
+      const correctNum = toNumber(correctAnswers[0]);
+      if (userNum !== null && correctNum !== null) {
+        return {
+          isCorrect: Math.abs(userNum - correctNum) < 1e-9,
+          partialCredit: false,
+        };
+      }
       // Case-insensitive exact match
       return {
         isCorrect:
-          String(userAnswer).toLowerCase().trim() ===
-          correctAnswers[0].toLowerCase().trim(),
+          userNormalized.toLowerCase() === correctNormalized.toLowerCase(),
         partialCredit: false,
       };
 
