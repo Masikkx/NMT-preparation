@@ -1643,6 +1643,7 @@ export default function TestPage() {
                     a⃗
                   </button>
                 </div>
+                )}
                   <textarea
                     ref={editTextRef}
                     value={editText}
