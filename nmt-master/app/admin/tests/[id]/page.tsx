@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
 import Link from 'next/link';
+import { InlineMath, BlockMath } from 'react-katex';
 
 interface EditQuestion {
   type: 'single_choice' | 'written' | 'matching' | 'select_three';
@@ -61,6 +62,102 @@ export default function AdminEditTestPage() {
   });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const questionTextRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const insertAtCursor = (
+    ref: React.RefObject<HTMLTextAreaElement | null>,
+    value: string,
+    setValue: (next: string) => void,
+    insert: string,
+    cursorOffset?: number
+  ) => {
+    const el = ref.current;
+    if (!el) {
+      setValue(value + insert);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const next = `${before}${insert}${after}`;
+    setValue(next);
+    requestAnimationFrame(() => {
+      const pos = cursorOffset !== undefined ? start + cursorOffset : start + insert.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const wrapSelection = (
+    ref: React.RefObject<HTMLTextAreaElement | null>,
+    value: string,
+    setValue: (next: string) => void,
+    left: string,
+    right: string
+  ) => {
+    const el = ref.current;
+    if (!el) {
+      setValue(`${value}${left}${right}`);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const selection = value.slice(start, end);
+    const next = `${value.slice(0, start)}${left}${selection}${right}${value.slice(end)}`;
+    setValue(next);
+    requestAnimationFrame(() => {
+      const pos = start + left.length + selection.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const normalizeAutoMath = (text: string) => {
+    const lines = text.split('\n');
+    const normalizedLines = lines.map((line) => {
+      let next = line;
+      next = next.replace(/x\^2/g, 'x^2');
+      const hasMathSymbols = /[∫√^_=]/.test(next);
+      const hasCyrillic = /[А-ЯІЇЄҐа-яіїєґ]/.test(next);
+      const hasLongWord = /[A-Za-z]{3,}/.test(next);
+      const hasDelimiters = /(\$\$|\$|\\\(|\\\)|\\\[|\\\]|\[math:|\[mathblock:)/.test(next);
+      if (hasMathSymbols && !hasCyrillic && !hasLongWord && !hasDelimiters) {
+        const latexSafe = next
+          .replace(/∫/g, '\\\\int ')
+          .replace(/[∙·]/g, '\\\\cdot ');
+        return `$${latexSafe}$`;
+      }
+      return next;
+    });
+    return normalizedLines.join('\n');
+  };
+
+  const renderMathText = (text: string) => {
+    if (!text) return null;
+    const normalized = normalizeAutoMath(text);
+    const pattern =
+      /(\$\$[\s\S]+?\$\$|\$[^$]+\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\[mathblock:[\s\S]+?\]|\[math:[\s\S]+?\])/g;
+    const parts = normalized.split(pattern).filter((p) => p !== '');
+    return parts.map((part, idx) => {
+      const isBlock = part.startsWith('$$') || part.startsWith('\\[') || part.startsWith('[mathblock:');
+      const isInline = part.startsWith('$') || part.startsWith('\\(') || part.startsWith('[math:');
+      if (isBlock || isInline) {
+        let math = part;
+        if (part.startsWith('$$')) math = part.slice(2, -2);
+        else if (part.startsWith('$')) math = part.slice(1, -1);
+        else if (part.startsWith('\\[')) math = part.slice(2, -2);
+        else if (part.startsWith('\\(')) math = part.slice(2, -2);
+        else if (part.startsWith('[mathblock:')) math = part.slice(11, -1);
+        else if (part.startsWith('[math:')) math = part.slice(6, -1);
+        return isBlock ? <BlockMath key={idx} math={math} /> : <InlineMath key={idx} math={math} />;
+      }
+      return (
+        <span key={idx} className="whitespace-pre-line">
+          {part}
+        </span>
+      );
+    });
+  };
 
   const uploadQuestionImage = async (file: File) => {
     const form = new FormData();
@@ -1338,15 +1435,141 @@ export default function AdminEditTestPage() {
 
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
-                <textarea
-                  ref={questionTextRef}
-                  value={currentQuestion.text}
-                  onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
-                  onPaste={handlePasteImage}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
-                  placeholder={t('adminCreateTest.questionTextPlaceholder')}
-                  rows={2}
-                />
+              <div className="flex flex-wrap gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    wrapSelection(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$',
+                      '$'
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  $…$
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$x^2$',
+                      4
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  x²
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\sqrt{}$',
+                      7
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  √
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\frac{}{}$',
+                      7
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  a/b
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\int_{}^{}$',
+                      7
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  ∫
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\sum_{}^{}$',
+                      7
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  Σ
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\log_{}$',
+                      6
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  logₐ
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$|x|$',
+                      4
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  |x|
+                </button>
+              </div>
+              <textarea
+                ref={questionTextRef}
+                value={currentQuestion.text}
+                onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
+                onPaste={handlePasteImage}
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                placeholder={t('adminCreateTest.questionTextPlaceholder')}
+                rows={2}
+              />
+              <div className="mt-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm">
+                <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Попередній перегляд</div>
+                {renderMathText(currentQuestion.text || '')}
+              </div>
                 {(() => {
                   const token = getImageToken(currentQuestion.text || '');
                   if (!token?.url) return null;
@@ -1620,6 +1843,128 @@ export default function AdminEditTestPage() {
 
                     <div className="mb-4">
                       <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            wrapSelection(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$',
+                              '$'
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          $…$
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$x^2$',
+                              4
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          x²
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\sqrt{}$',
+                              7
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          √
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\frac{}{}$',
+                              7
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          a/b
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\int_{}^{}$',
+                              7
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          ∫
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\sum_{}^{}$',
+                              7
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          Σ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\log_{}$',
+                              6
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          logₐ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$|x|$',
+                              4
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          |x|
+                        </button>
+                      </div>
                       <textarea
                         ref={questionTextRef}
                         value={currentQuestion.text}
@@ -1629,6 +1974,10 @@ export default function AdminEditTestPage() {
                         placeholder={t('adminCreateTest.questionTextPlaceholder')}
                         rows={2}
                       />
+                      <div className="mt-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm">
+                        <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Попередній перегляд</div>
+                        {renderMathText(currentQuestion.text || '')}
+                      </div>
                     </div>
 
                     <div className="mb-4" onPaste={handlePasteImage} tabIndex={0}>
