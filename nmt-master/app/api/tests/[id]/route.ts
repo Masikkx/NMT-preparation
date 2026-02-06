@@ -57,6 +57,44 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
+    const normalizeQuestionPayload = (q: any) => {
+      const type = q?.type || 'single_choice';
+      const text = String(q?.text ?? q?.content ?? '');
+      const imageUrl = q?.imageUrl ? String(q.imageUrl) : '';
+      const options = Array.isArray(q?.options) ? q.options.map((o: any) => String(o ?? '')) : [];
+      let correctAnswer: any = q?.correctAnswer;
+
+      if (type === 'single_choice') {
+        const idx = Number(correctAnswer);
+        correctAnswer = Number.isFinite(idx) ? idx : 0;
+      } else if (type === 'multiple_answers') {
+        const arr = Array.isArray(correctAnswer) ? correctAnswer : [];
+        correctAnswer = arr.map((v) => String(v));
+      } else if (type === 'select_three') {
+        const arr = Array.isArray(correctAnswer) ? correctAnswer : [];
+        correctAnswer = arr.map((v) => String(v));
+      } else if (type === 'matching') {
+        const arr = Array.isArray(correctAnswer) ? correctAnswer : [];
+        correctAnswer = arr.map((v) => String(v ?? ''));
+      } else if (type === 'written') {
+        correctAnswer = String(correctAnswer ?? '');
+      }
+
+      return {
+        ...q,
+        type,
+        text,
+        content: text,
+        imageUrl,
+        options,
+        correctAnswer,
+      };
+    };
+
+    const normalizedQuestions = Array.isArray(body.questions)
+      ? body.questions.map(normalizeQuestionPayload)
+      : [];
+
     const defaultPoints = (type?: string) => {
       if (type === 'written') return 2;
       if (type === 'matching') return 4;
@@ -83,8 +121,8 @@ export async function PUT(
         },
       });
 
-      if (Array.isArray(body.questions)) {
-        if (body.questions.length === 0) {
+      if (Array.isArray(normalizedQuestions)) {
+        if (normalizedQuestions.length === 0) {
           await tx.answer.deleteMany({
             where: { question: { testId: id } },
           });
@@ -102,7 +140,7 @@ export async function PUT(
         });
 
         let order = 0;
-        for (const q of body.questions) {
+        for (const q of normalizedQuestions) {
           order += 1;
           const matchingLen = q.type === 'matching' && Array.isArray(q.correctAnswer) ? q.correctAnswer.length : 0;
           const questionPoints = q.points ?? (q.type === 'matching' && matchingLen >= 3 ? matchingLen : defaultPoints(q.type));
@@ -186,10 +224,10 @@ export async function PUT(
     });
 
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update test error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: String(error?.message || error) },
       { status: 500 }
     );
   }
