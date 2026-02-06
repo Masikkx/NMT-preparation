@@ -1641,7 +1641,7 @@ export default function TestPage() {
               {(editTarget.type === 'single_choice' || editTarget.type === 'multiple_answers' || editTarget.type === 'select_three') && (
                 <div>
                   <label className="block text-sm font-medium mb-2">Варіанти</label>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {editOptions.map((opt, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <span className="text-xs w-6 text-center">{idx + 1}</span>
@@ -1653,7 +1653,7 @@ export default function TestPage() {
                             next[idx] = e.target.value;
                             setEditOptions(next);
                           }}
-                          className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                          className="flex-1 px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700 text-sm"
                         />
                       </div>
                     ))}
