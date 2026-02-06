@@ -1208,7 +1208,7 @@ export default function TestPage() {
                         <div className="space-y-1">
                           {leftItems.map((l, i) => (
                             <div key={`left-${i}`} className="text-slate-700 dark:text-slate-300">
-                              {l}
+                              {renderMathText(l)}
                             </div>
                           ))}
                         </div>
@@ -1218,7 +1218,7 @@ export default function TestPage() {
                         <div className="space-y-1">
                           {cols.map((r, i) => (
                             <div key={`right-${i}`} className="text-slate-700 dark:text-slate-300">
-                              {r}
+                              {renderMathText(r)}
                             </div>
                           ))}
                         </div>
