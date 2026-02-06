@@ -860,6 +860,9 @@ export default function TestPage() {
         else if (part.startsWith('\\(')) math = part.slice(2, -2);
         else if (part.startsWith('[mathblock:')) math = part.slice(11, -1);
         else if (part.startsWith('[math:')) math = part.slice(6, -1);
+        if (/\{array\}/.test(math) && /\n/.test(math) && !/\\\\/.test(math)) {
+          math = math.replace(/\r?\n/g, '\\\\\n');
+        }
         const needsBlock =
           isBlock ||
           /\\begin\{array\}|\\\\/.test(math) ||
