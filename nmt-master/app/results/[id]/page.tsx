@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useLanguageStore } from '@/store/language';
 import { checkAnswer } from '@/lib/scoring';
+import { InlineMath, BlockMath } from 'react-katex';
 
 interface Result {
   id: string;
@@ -31,6 +32,108 @@ export default function ResultsPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<any>(null);
+
+  const normalizeAutoMath = (text: string) => {
+    const lines = text.split('\n');
+    const normalizedLines = lines.map((line) => {
+      let next = line;
+      next = next.replace(/([A-Za-zА-ЯІЇЄҐ]{1,6})\s*[\u20D7\u20D6]+/g, (_, v) => `$\\overrightarrow{${v}}$`);
+      next = next.replace(
+        /log\s*([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Zа-яА-Я𝑥x𝑥])\s*=\s*([0-9]+(?:[.,][0-9]+)?)/g,
+        (_, base, v, num) => `$\\log_{${base}} ${v} = ${num}$`
+      );
+      next = next.replace(
+        /log\s*([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Zа-яА-Я𝑥x𝑥])/g,
+        (_, base, v) => `$\\log_{${base}} ${v}$`
+      );
+      next = next.replace(/√\s*([0-9a-zA-Z]+)/g, (_, v) => `$\\sqrt{${v}}$`);
+
+      const hasMathSymbols = /[∫√^_=]/.test(next);
+      const hasCyrillic = /[А-ЯІЇЄҐа-яіїєґ]/.test(next);
+      const hasLongWord = /[A-Za-z]{3,}/.test(next);
+      const hasDelimiters = /(\$\$|\$|\\\(|\\\)|\\\[|\\\]|\[math:|\[mathblock:)/.test(next);
+      if (hasMathSymbols && !hasCyrillic && !hasLongWord && !hasDelimiters) {
+        const latexSafe = next
+          .replace(/∫/g, '\\\\int ')
+          .replace(/[∙·]/g, '\\\\cdot ');
+        return `$${latexSafe}$`;
+      }
+      return next;
+    });
+    return normalizedLines.join('\n');
+  };
+
+  const renderMathText = (text: string) => {
+    if (!text) return null;
+    const unescaped = text.includes('\\\\') ? text.replace(/\\\\/g, '\\') : text;
+    const normalized = normalizeAutoMath(unescaped);
+    const pattern =
+      /(\$\$[\s\S]+?\$\$|\$[^$]+\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\[mathblock:[\s\S]+?\]|\[math:[\s\S]+?\])/g;
+    const parts = normalized.split(pattern).filter((p) => p !== '');
+    return parts.map((part, idx) => {
+      const isBlock = part.startsWith('$$') || part.startsWith('\\[') || part.startsWith('[mathblock:');
+      const isInline = part.startsWith('$') || part.startsWith('\\(') || part.startsWith('[math:');
+      if (isBlock || isInline) {
+        let math = part;
+        if (part.startsWith('$$')) math = part.slice(2, -2);
+        else if (part.startsWith('$')) math = part.slice(1, -1);
+        else if (part.startsWith('\\[')) math = part.slice(2, -2);
+        else if (part.startsWith('\\(')) math = part.slice(2, -2);
+        else if (part.startsWith('[mathblock:')) math = part.slice(11, -1);
+        else if (part.startsWith('[math:')) math = part.slice(6, -1);
+        if (/\{array\}/.test(math) && /\n/.test(math) && !/\\\\/.test(math)) {
+          math = math.replace(/\r?\n/g, '\\\\\n');
+        }
+        const needsBlock =
+          isBlock ||
+          /\\begin\{array\}|\\\\/.test(math) ||
+          /\\left\s*\\\{/.test(math) ||
+          /\\right\s*\\\./.test(math);
+        return needsBlock ? <BlockMath key={idx} math={math} /> : <InlineMath key={idx} math={math} />;
+      }
+      return (
+        <span key={idx} className="whitespace-pre-line">
+          {part}
+        </span>
+      );
+    });
+  };
+
+  const renderRichText = (text: string) => {
+    if (!text) return null;
+    const tokenRegex = /\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/gi;
+    const parts: React.ReactNode[] = [];
+    let last = 0;
+    let match: RegExpExecArray | null;
+    let idx = 0;
+    while ((match = tokenRegex.exec(text)) !== null) {
+      const before = text.slice(last, match.index);
+      if (before) {
+        parts.push(<span key={`t-${idx++}`}>{renderMathText(before)}</span>);
+      }
+      const url = match[1].trim();
+      const width = match[2] ? Number(match[2]) : undefined;
+      parts.push(
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={`i-${idx++}`}
+          src={url}
+          alt="question"
+          className="my-2 max-w-full rounded"
+          style={width ? { width } : undefined}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      );
+      last = tokenRegex.lastIndex;
+    }
+    const rest = text.slice(last);
+    if (rest) {
+      parts.push(<span key={`t-${idx++}`}>{renderMathText(rest)}</span>);
+    }
+    return parts;
+  };
 
   useEffect(() => {
     // Note: We'll need to add an API endpoint to fetch a single result
@@ -269,7 +372,10 @@ export default function ResultsPage() {
               return (
                 <div key={q.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-semibold">{idx + 1}. {q.content || t('results.imageQuestion')}</p>
+                    <div className="font-semibold">
+                      <span className="mr-1">{idx + 1}.</span>
+                      <span>{renderRichText(q.content || t('results.imageQuestion'))}</span>
+                    </div>
                     <span className={`text-sm font-semibold ${
                       status === 'correct' ? 'text-green-600' : status === 'partial' ? 'text-yellow-600' : 'text-red-600'
                     }`}>
@@ -280,16 +386,22 @@ export default function ResultsPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={q.imageUrl} alt="question" className="mb-3 max-h-64 rounded" />
                   )}
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {t('results.yourAnswer')}: {userAnswerDisplay}
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {t('results.correctAnswer')}: {q.type === 'matching'
-                      ? correctMatching.join(', ')
-                      : q.type === 'select_three'
-                      ? correctSelectThree.join(', ')
-                      : correctTexts.join(', ')}
-                  </p>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-semibold">{t('results.yourAnswer')}:</span>{' '}
+                    <span>{renderRichText(userAnswerDisplay)}</span>
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-semibold">{t('results.correctAnswer')}:</span>{' '}
+                    <span>
+                      {renderRichText(
+                        q.type === 'matching'
+                          ? correctMatching.join(', ')
+                          : q.type === 'select_three'
+                          ? correctSelectThree.join(', ')
+                          : correctTexts.join(', ')
+                      )}
+                    </span>
+                  </div>
 
                 </div>
               );

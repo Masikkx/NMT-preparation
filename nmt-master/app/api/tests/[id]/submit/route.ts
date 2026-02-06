@@ -158,6 +158,36 @@ export async function POST(
       });
     }
 
+    // Persist answers so results page can show correct/incorrect reliably
+    for (const answer of userAnswersData) {
+      const answerIds = Array.isArray(answer.answer) ? answer.answer : [answer.answer];
+      const answerIdsSerialized = JSON.stringify(answerIds);
+      const existing = await prisma.userAnswer.findFirst({
+        where: {
+          attemptId: attempt.id,
+          questionId: answer.questionId,
+        },
+      });
+      if (existing) {
+        await prisma.userAnswer.update({
+          where: { id: existing.id },
+          data: {
+            answerIds: answerIdsSerialized,
+            answerText: typeof answer.answer === 'string' ? answer.answer : undefined,
+          },
+        });
+      } else {
+        await prisma.userAnswer.create({
+          data: {
+            attemptId: attempt.id,
+            questionId: answer.questionId,
+            answerIds: answerIdsSerialized,
+            answerText: typeof answer.answer === 'string' ? answer.answer : undefined,
+          },
+        });
+      }
+    }
+
     // Create result
     const result = await prisma.result.create({
       data: {

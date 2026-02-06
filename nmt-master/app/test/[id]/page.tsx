@@ -878,6 +878,42 @@ export default function TestPage() {
     });
   };
 
+  const renderRichText = (text: string) => {
+    if (!text) return null;
+    const tokenRegex = /\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/gi;
+    const parts: React.ReactNode[] = [];
+    let last = 0;
+    let match: RegExpExecArray | null;
+    let idx = 0;
+    while ((match = tokenRegex.exec(text)) !== null) {
+      const before = text.slice(last, match.index);
+      if (before) {
+        parts.push(<span key={`t-${idx++}`}>{renderMathText(before)}</span>);
+      }
+      const url = match[1].trim();
+      const width = match[2] ? Number(match[2]) : undefined;
+      parts.push(
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={`i-${idx++}`}
+          src={url}
+          alt="question"
+          className="my-2 max-w-full rounded"
+          style={width ? { width } : undefined}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      );
+      last = tokenRegex.lastIndex;
+    }
+    const rest = text.slice(last);
+    if (rest) {
+      parts.push(<span key={`t-${idx++}`}>{renderMathText(rest)}</span>);
+    }
+    return parts;
+  };
+
   const insertAtCursor = (
     ref: React.RefObject<HTMLTextAreaElement | null>,
     value: string,
@@ -1028,7 +1064,7 @@ export default function TestPage() {
                       style={{ width: block.width ? `${block.width}px` : undefined, maxWidth: '100%', height: 'auto' }}
                     />
                   ))}
-                <div>{renderMathText(parts?.prompt || matchingContent)}</div>
+                <div>{renderRichText(parts?.prompt || matchingContent)}</div>
               </div>
             ) : inlineOptions.hasInline ? (
               <div className="space-y-2">
@@ -1056,13 +1092,13 @@ export default function TestPage() {
                             return (
                               <div key={`optline-${i}-${ix}`} className="flex gap-2">
                                 <span className="font-semibold w-5">{m[1]}.</span>
-                                <span className="font-normal text-sm sm:text-base">{renderMathText(m[2])}</span>
+                                <span className="font-normal text-sm sm:text-base">{renderRichText(m[2])}</span>
                               </div>
                             );
                           }
                           return (
                             <div key={`line-${i}-${ix}`} className="font-semibold text-sm sm:text-lg">
-                              {renderMathText(line)}
+                              {renderRichText(line)}
                             </div>
                           );
                         })}
@@ -1071,7 +1107,7 @@ export default function TestPage() {
                 })}
               </div>
             ) : (
-              renderMathText(q.content)
+              renderRichText(q.content)
             )}
           </div>
         )}
@@ -1090,7 +1126,7 @@ export default function TestPage() {
                     .map((answer, aIdx) => (
                       <div key={answer.id} className="flex gap-2">
                         <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
-                        <span>{renderMathText(answer.content)}</span>
+                        <span>{renderRichText(answer.content)}</span>
                       </div>
                     ))}
                 </div>
@@ -1170,7 +1206,7 @@ export default function TestPage() {
                   .map((answer, aIdx) => (
                     <div key={answer.id} className="flex gap-2 items-start">
                       <span className="text-sm font-semibold w-6 text-center">{aIdx + 1}</span>
-                      <span className="text-sm">{answer.content}</span>
+                      <span className="text-sm">{renderRichText(answer.content)}</span>
                     </div>
                   ))}
               </div>
@@ -1234,7 +1270,7 @@ export default function TestPage() {
                         <div className="space-y-1">
                           {leftItems.map((l, i) => (
                             <div key={`left-${i}`} className="text-slate-700 dark:text-slate-300">
-                              {renderMathText(l)}
+                              {renderRichText(l)}
                             </div>
                           ))}
                         </div>
@@ -1244,7 +1280,7 @@ export default function TestPage() {
                         <div className="space-y-1">
                           {cols.map((r, i) => (
                             <div key={`right-${i}`} className="text-slate-700 dark:text-slate-300">
-                              {renderMathText(r)}
+                              {renderRichText(r)}
                             </div>
                           ))}
                         </div>
@@ -1322,7 +1358,7 @@ export default function TestPage() {
           correctTextMap[q.id] && (
             <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-sm">
               <span className="font-semibold">{t('test.correctAnswer')}:</span>{' '}
-              {renderMathText(correctTextMap[q.id])}
+              {renderRichText(correctTextMap[q.id])}
             </div>
           )}
 
@@ -1625,7 +1661,7 @@ export default function TestPage() {
                   />
                 <div className="mt-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm">
                   <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Попередній перегляд</div>
-                  {renderMathText(editText)}
+                  {renderRichText(editText)}
                 </div>
                 {(() => {
                   const tokens = getImageTokens(editText || '');
