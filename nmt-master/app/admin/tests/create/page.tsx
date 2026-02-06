@@ -151,6 +151,8 @@ export default function CreateTestPage() {
     });
   };
 
+  const isMathSubject = testData.subject === 'mathematics';
+
   useEffect(() => {
     if (!(testData.subject === 'history-ukraine' && testData.type === 'topic') && testData.historyTopicCode) {
       setTestData((prev) => ({ ...prev, historyTopicCode: '' }));
@@ -1240,7 +1242,8 @@ export default function CreateTestPage() {
 
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
-              <div className="flex flex-wrap gap-2 mb-2">
+              {isMathSubject && (
+                <div className="flex flex-wrap gap-2 mb-2">
                 <button
                   type="button"
                   onClick={() =>
@@ -1647,6 +1650,7 @@ export default function CreateTestPage() {
                   a⃗
                 </button>
               </div>
+              )}
               <textarea
                 ref={questionTextRef}
                 value={currentQuestion.text}
@@ -1932,7 +1936,8 @@ export default function CreateTestPage() {
 
                     <div className="mb-4">
                       <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
-                      <div className="flex flex-wrap gap-2 mb-2">
+                      {isMathSubject && (
+                        <div className="flex flex-wrap gap-2 mb-2">
                         <button
                           type="button"
                           onClick={() =>
@@ -2339,6 +2344,7 @@ export default function CreateTestPage() {
                           a⃗
                         </button>
                       </div>
+                      )}
                       <textarea
                         ref={questionTextRef}
                         value={currentQuestion.text}

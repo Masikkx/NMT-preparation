@@ -47,6 +47,7 @@ export default function AdminEditTestPage() {
     setTest(next);
   };
   const getSubjectSlug = () => testRef.current?.subject?.slug || test?.subject?.slug || '';
+  const isMathSubject = getSubjectSlug() === 'mathematics';
   const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
   const [bulkText, setBulkText] = useState('');
   const [bulkNormalized, setBulkNormalized] = useState('');
@@ -1443,6 +1444,7 @@ export default function AdminEditTestPage() {
 
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
+              {isMathSubject && (
               <div className="flex flex-wrap gap-2 mb-2">
                 <button
                   type="button"
@@ -1850,6 +1852,7 @@ export default function AdminEditTestPage() {
                   a⃗
                 </button>
               </div>
+              )}
               <textarea
                 ref={questionTextRef}
                 value={currentQuestion.text}
@@ -2136,6 +2139,7 @@ export default function AdminEditTestPage() {
 
                     <div className="mb-4">
                       <label className="block text-sm font-medium mb-2">{t('adminCreateTest.questionText')}</label>
+                      {isMathSubject && (
                       <div className="flex flex-wrap gap-2 mb-2">
                         <button
                           type="button"
@@ -2543,6 +2547,7 @@ export default function AdminEditTestPage() {
                           a⃗
                         </button>
                       </div>
+                      )}
                       <textarea
                         ref={questionTextRef}
                         value={currentQuestion.text}

@@ -484,6 +484,10 @@ export default function TestPage() {
   };
 
   const isAdmin = user?.role === 'admin';
+  const isMathSubject =
+    test?.subject?.slug === 'mathematics' ||
+    test?.subject?.name?.toLowerCase().includes('матем') ||
+    test?.subject?.name?.toLowerCase().includes('math');
 
   const uploadQuestionImage = async (file: File) => {
     const form = new FormData();
@@ -1439,7 +1443,8 @@ export default function TestPage() {
             <div className="mt-3 space-y-3 overflow-y-auto pr-1 max-h-[72vh] sm:max-h-[70vh] text-sm">
               <div>
                 <label className="block text-sm font-medium mb-2">Текст питання</label>
-                <div className="flex flex-wrap gap-2 mb-2">
+                  {isMathSubject && (
+                  <div className="flex flex-wrap gap-2 mb-2">
                   <button
                     type="button"
                     onClick={() => wrapSelection(editTextRef, editText, setEditText, '$', '$')}
@@ -1738,6 +1743,7 @@ export default function TestPage() {
                       </div>
                     ))}
                   </div>
+                  )}
                   {editTarget.type === 'single_choice' && editOptions.length < 5 && (
                     <button
                       type="button"
