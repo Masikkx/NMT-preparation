@@ -1250,6 +1250,13 @@ export default function TestPage() {
           )}
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => checkAnswerForQuestion(q)}
+            disabled={getCheckDisabled(q)}
+            className="px-4 sm:px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition text-sm sm:text-base"
+          >
+            {t('test.checkAnswer')}
+          </button>
           {viewMode === 'paged' && (
             <>
               <button
@@ -1261,17 +1268,6 @@ export default function TestPage() {
               >
                 ⬅️
               </button>
-            </>
-          )}
-          <button
-            onClick={() => checkAnswerForQuestion(q)}
-            disabled={getCheckDisabled(q)}
-            className="px-4 sm:px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition text-sm sm:text-base"
-          >
-            {t('test.checkAnswer')}
-          </button>
-          {viewMode === 'paged' && (
-            <>
               <button
                 onClick={handleNextQuestion}
                 disabled={currentQuestionIndex === test.questions.length - 1 || paused}
