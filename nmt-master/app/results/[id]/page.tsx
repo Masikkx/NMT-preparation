@@ -384,7 +384,7 @@ export default function ResultsPage() {
                       {status === 'correct' ? t('results.correct') : status === 'partial' ? t('results.partial') : t('results.incorrect')}
                     </span>
                   </div>
-                  {q.imageUrl && (
+                  {q.imageUrl && !/\[(?:image|img)\s*:\s*[^\]]+\]/i.test(q.content || '') && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={q.imageUrl} alt="question" className="mb-3 max-h-64 rounded" loading="lazy" decoding="async" />
                   )}
