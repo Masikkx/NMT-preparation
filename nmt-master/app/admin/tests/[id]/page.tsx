@@ -1518,7 +1518,7 @@ export default function AdminEditTestPage() {
                       questionTextRef,
                       currentQuestion.text || '',
                       (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
-                      '$\\left\\{\\begin{array}{l}\n\\end{array}\\right.$',
+                      '$\\left\\{\\begin{array}{l}\n\n\\end{array}\\right.$',
                       25
                     )
                   }
@@ -2211,7 +2211,7 @@ export default function AdminEditTestPage() {
                               questionTextRef,
                               currentQuestion.text || '',
                               (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
-                              '$\\left\\{\\begin{array}{l}\n\\end{array}\\right.$',
+                              '$\\left\\{\\begin{array}{l}\n\n\\end{array}\\right.$',
                               25
                             )
                           }
