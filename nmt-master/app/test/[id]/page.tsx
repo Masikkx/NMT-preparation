@@ -1395,6 +1395,48 @@ export default function TestPage() {
                   >
                     ±
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\parallel$', 10)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ∥
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$^\\circ$', 2)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    °
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\triangle$', 11)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    △
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\odot$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ⊙
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\overline{AB}$', 12)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    AB̅
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\vec{a}$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    a⃗
+                  </button>
                 </div>
                 <textarea
                   ref={editTextRef}

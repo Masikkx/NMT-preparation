@@ -123,10 +123,11 @@ export async function POST(
 
     const totalQuestions = test.questions.length;
     const rawScore = calculatePercentage(correctCount, totalQuestions);
-    const scaledScore =
-      test.type === 'past_nmt'
-        ? convertToNMTScale(correctCount, test.subject?.slug)
-        : earnedPoints;
+    const subjectSlug = test.subject?.slug || '';
+    const useNmtScale = test.type === 'past_nmt' || subjectSlug === 'mathematics';
+    const scaledScore = useNmtScale
+      ? convertToNMTScale(correctCount, subjectSlug)
+      : earnedPoints;
     const timeSpent = body.timeSpent || 0;
 
     let attempt;

@@ -1488,6 +1488,96 @@ export default function CreateTestPage() {
                 >
                   ±
                 </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\parallel$',
+                      10
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  ∥
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$^\\circ$',
+                      2
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  °
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\triangle$',
+                      11
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  △
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\odot$',
+                      7
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  ⊙
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\overline{AB}$',
+                      12
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  AB̅
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\vec{a}$',
+                      7
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  a⃗
+                </button>
               </div>
               <textarea
                 ref={questionTextRef}
@@ -2027,10 +2117,100 @@ export default function CreateTestPage() {
                           )
                         }
                         className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
-                      >
-                        ±
-                      </button>
-                    </div>
+                        >
+                          ±
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\parallel$',
+                              10
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          ∥
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$^\\circ$',
+                              2
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          °
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\triangle$',
+                              11
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          △
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\odot$',
+                              7
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          ⊙
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\overline{AB}$',
+                              12
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          AB̅
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\vec{a}$',
+                              7
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          a⃗
+                        </button>
+                      </div>
                       <textarea
                         ref={questionTextRef}
                         value={currentQuestion.text}
