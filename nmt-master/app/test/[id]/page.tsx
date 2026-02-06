@@ -1321,8 +1321,8 @@ export default function TestPage() {
       )}
       {showEditModal && editTarget && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-5 w-full max-w-2xl shadow-xl border border-slate-200 dark:border-slate-700">
-            <div className="flex items-start justify-between gap-4">
+        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 w-full max-w-2xl shadow-xl border border-slate-200 dark:border-slate-700 max-h-[85vh] overflow-hidden">
+          <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-bold mb-1">Редагування питання</h3>
                 <p className="text-xs text-slate-500">Тип: {editTarget.type}</p>
@@ -1335,7 +1335,7 @@ export default function TestPage() {
               </button>
             </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="mt-3 space-y-3 overflow-y-auto pr-1 max-h-[70vh] text-sm">
               <div>
                 <label className="block text-sm font-medium mb-2">Текст питання</label>
                 <div className="flex flex-wrap gap-2 mb-2">
