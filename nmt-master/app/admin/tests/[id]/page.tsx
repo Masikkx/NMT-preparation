@@ -768,8 +768,6 @@ export default function AdminEditTestPage() {
     const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
     const sequenceHintRegex =
       /(Установіть\s+(послідовність|хронологію)|у\s*хронологічній\s*послідовності|розташуйте\s+в\s+хронологічній\s+послідовності|розташуйте\s+в\s+правильній\s+послідовності)/i;
-    const subjectSlug = base.subject?.slug || '';
-
     const parsed: EditQuestion[] = [];
     const warnings: Record<number, string> = {};
     for (let idx = 0; idx < questionBlocks.length; idx++) {
