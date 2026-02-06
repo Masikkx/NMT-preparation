@@ -1362,6 +1362,13 @@ export default function TestPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\sqrt[]{}$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ⁿ√
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\frac{}{}$', 7)}
                     className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
                   >
