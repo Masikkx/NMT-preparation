@@ -47,6 +47,7 @@ export default function AdminEditTestPage() {
   };
   const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
   const [bulkText, setBulkText] = useState('');
+  const [bulkNormalized, setBulkNormalized] = useState('');
   const [bulkError, setBulkError] = useState('');
   const [bulkWarnings, setBulkWarnings] = useState<Record<number, string>>({});
   const [forceSaving, setForceSaving] = useState(false);
@@ -139,7 +140,7 @@ export default function AdminEditTestPage() {
 
   const parseInlineOptionsFromText = (text: string) => {
     const lines = text.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim());
-    const optionRegex = /^([A-ZА-ЯІЇЄҐ])(?:[.)]|:)\s*(.+)$/;
+    const optionRegex = /^([АБВГДЕЄ])(?:[.)]|:)\s*(.+)$/;
     const options: string[] = [];
     const promptLines: string[] = [];
     let lastOption = -1;
@@ -160,6 +161,19 @@ export default function AdminEditTestPage() {
     const limited = options.slice(0, 5);
     const hasInline = limited.length >= 4;
     return { hasInline, options: limited, prompt: promptLines.join('\n').trim() };
+  };
+
+  const normalizeMatchingAnswerValue = (value: string) => {
+    const matches = [...value.matchAll(/(\d+)\s*[–-]\s*([АБВГДЕЄ])/g)];
+    if (matches.length >= 2) {
+      const ordered = matches
+        .map((m) => ({ idx: Number(m[1]), letter: m[2] }))
+        .sort((a, b) => a.idx - b.idx)
+        .map((m) => m.letter)
+        .join('');
+      return ordered || value;
+    }
+    return value;
   };
 
   const normalizeQuestionForSave = (q: EditQuestion): EditQuestion => {
@@ -490,7 +504,7 @@ export default function AdminEditTestPage() {
     setInputMode('manual');
   };
 
-  const parseBulkText = () => {
+  const parseBulkText = (sourceText?: string) => {
     const base = testRef.current ?? test;
     if (!base) return;
     setBulkError('');
@@ -505,35 +519,95 @@ export default function AdminEditTestPage() {
         imageUrl: '',
       });
     }
-    const text = bulkText.trim();
+    const text = (sourceText ?? bulkText).trim();
     if (!text) {
       setBulkError(t('adminCreateTest.bulkEmpty'));
       return;
     }
 
-    const normalizeInline = (input: string) =>
-      input
-        .replace(/([^\n])\s+(\d+\.)\s/g, '$1\n$2 ')
-        .replace(/([^\n])\s+([A-ZА-ЯІЇЄҐ])([.)]|:)\s/g, '$1\n$2$3 ');
+    const normalizeInline = (input: string) => {
+      if (testData.subject !== 'mathematics') {
+        return input;
+      }
+      const lines = input.split('\n');
+      const optionToken = /(?:^|\s)([АБВГДЕЄ])(?:\.)?\s+(?=\S)/g;
+      const hasMultipleOptions = (line: string) => {
+        const matches = line.match(new RegExp(optionToken, 'g'));
+        return (matches?.length ?? 0) >= 2;
+      };
+      const next = lines.map((line) => {
+        let out = line;
+        out = out.replace(/^([АБВГДЕЄ])\s+(?=\S)/, '$1. ');
+        if (hasMultipleOptions(out)) {
+          out = out.replace(/([^\n])\s+(\d+\.)\s/g, '$1\n$2 ');
+          out = out.replace(/([^\n])\s+([АБВГДЕЄ])\s+(?=\S)/g, '$1\n$2. ');
+          out = out.replace(/([^\n])\s+([АБВГДЕЄ])(\.)\s/g, '$1\n$2$3 ');
+        }
+        return out;
+      });
+      return next.join('\n');
+    };
 
     const normalizeBulkInput = (input: string) => {
       const raw = input.replace(/\r\n/g, '\n').replace(/\u00A0/g, ' ');
       const lines = raw
         .split('\n')
         .map((l) => l.replace(/[ \t]+/g, ' ').trim());
+      const expandedLines: string[] = [];
+      for (const line of lines) {
+        if (!line) continue;
+        if (testData.subject === 'mathematics') {
+          const parts = line.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
+          for (const part of parts) expandedLines.push(part.trim());
+        } else {
+          expandedLines.push(line);
+        }
+      }
       const out: string[] = [];
       const watermarkRegex = /(Український центр оцінювання якості освіти|©)/i;
-      const isQuestionStart = (line: string) => /^\d+\.\s/.test(line);
-      const isOptionStart = (line: string) => /^[A-ZА-ЯІЇЄҐ](?:[.)]|:)?\s+/.test(line);
+      const mathSkipRegex =
+        testData.subject === 'mathematics'
+          ? /(У\.?\s+завданнях|Розв[’']яжіть\s+завдання|Одержані\s+числові\s+відповіді|Відповідь\s+записуйте|відведеному\s+місці)/i
+          : null;
+      const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
+      const isQuestionStart = (line: string) =>
+        testData.subject === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
+      const optionLineRegex =
+        testData.subject === 'mathematics'
+          ? /^[АБВГДЕЄ](?:\.)?\s+/
+          : /^[A-ZА-ЯІЇЄҐ]\.\s+/;
+      const isOptionStart = (line: string) => optionLineRegex.test(line);
       const isAnswersHeader = (line: string) => /^(ВІДПОВІДІ|ANSWERS)/i.test(line);
       const isMathFragment = (line: string) =>
         /^([0-9]+|[+\-−*/=^(){}\[\]∙·]|[xX𝑥])$/.test(line);
 
-      for (const line of lines) {
+      for (let i = 0; i < expandedLines.length; i++) {
+        let line = expandedLines[i];
         if (!line) continue;
+        if (testData.subject === 'mathematics') {
+          const soloOpt = line.match(/^([АБВГДЕЄ])\.?$/);
+          if (soloOpt) {
+            const next = expandedLines[i + 1];
+            if (
+              next &&
+              !answersHeaderRegex.test(next) &&
+              !isQuestionStart(next) &&
+              !optionLineRegex.test(next)
+            ) {
+              line = `${soloOpt[1]} ${next}`.trim();
+              i += 1;
+            }
+          }
+        }
         if (watermarkRegex.test(line)) continue;
-        if (isAnswersHeader(line)) {
+        if (mathSkipRegex && mathSkipRegex.test(line)) continue;
+        if (answersHeaderRegex.test(line)) {
           out.push('ВІДПОВІДІ');
+          const rest = line.replace(answersHeaderRegex, '').trim();
+          if (rest) {
+            const bits = rest.split(/(?=\d+\s)/g).map((b) => b.trim()).filter(Boolean);
+            out.push(...bits);
+          }
           continue;
         }
         if (isQuestionStart(line) || isOptionStart(line)) {
@@ -556,7 +630,62 @@ export default function AdminEditTestPage() {
       return out.join('\n').trim();
     };
 
-    const normalized = normalizeInline(normalizeBulkInput(text));
+    const enforceCanonicalFormat = (input: string) => {
+      if (testData.subject !== 'mathematics') return input;
+      const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
+      const lines = input.split('\n').map((l) => l.trim()).filter(Boolean);
+      const out: string[] = [];
+      const questionStart = /^\d+(?:\.)?\s+/;
+    const optionInline = /(?:^|\s)([АБВГДЕЄ])(?:\.)?\s+(?=\S)/g;
+      let inAnswers = false;
+
+      for (const line of lines) {
+        const cleanedLine =
+          testData.subject === 'mathematics' && !inAnswers
+            ? line.replace(/Відповідь\s*:\s*,\s*\./gi, '').trim()
+            : line;
+        if (!cleanedLine) continue;
+        if (answersHeaderRegex.test(cleanedLine)) {
+          out.push('ВІДПОВІДІ');
+          inAnswers = true;
+          const rest = cleanedLine.replace(answersHeaderRegex, '').trim();
+          if (rest) out.push(rest);
+          continue;
+        }
+        if (!inAnswers && questionStart.test(cleanedLine)) {
+          const m = cleanedLine.match(/^(\d+)(?:\.)?\s+(.+)$/);
+          if (m) {
+            out.push(`${m[1]}. ${m[2].trim()}`);
+            continue;
+          }
+        }
+        if (!inAnswers) {
+          const matches = [...cleanedLine.matchAll(optionInline)];
+          if (matches.length >= 2) {
+            for (let i = 0; i < matches.length; i++) {
+              const start = matches[i].index! + matches[i][0].length;
+              const end = i + 1 < matches.length ? matches[i + 1].index! : cleanedLine.length;
+              const text = cleanedLine.slice(start, end).trim();
+              if (text) out.push(`${matches[i][1]}. ${text}`);
+            }
+            continue;
+          }
+        }
+        out.push(cleanedLine);
+      }
+
+      if (out.includes('ВІДПОВІДІ')) {
+        const idx = out.indexOf('ВІДПОВІДІ');
+        const ans = out.slice(idx + 1).map((l) => {
+          const m = l.match(/^(\d+)[.)]?\s*(.+)$/);
+          return m ? `${m[1]}. ${normalizeMatchingAnswerValue(m[2].trim())}` : l;
+        });
+        return [...out.slice(0, idx + 1), ...ans].join('\n');
+      }
+      return out.join('\n');
+    };
+
+    const normalized = enforceCanonicalFormat(normalizeInline(normalizeBulkInput(text)));
     const parts = normalized.split(/ВІДПОВІДІ|ANSWERS/i);
     if (parts.length < 2) {
       setBulkError(t('adminCreateTest.bulkNoAnswers'));
@@ -576,9 +705,10 @@ export default function AdminEditTestPage() {
       .map((l) => l.trim())
       .filter(Boolean);
     for (const line of answerLines) {
-      const m = line.match(/^(\d+)[.)]?\s*([A-Za-zА-ЯІЇЄҐ0-9]+)/);
+      const m = line.match(/^(\d+)[.)]?\s*(.+)$/);
       if (m) {
-        answerMap.set(Number(m[1]), m[2].toUpperCase());
+        const rest = m[2].trim().replace(/^[\s.]+/, '');
+        answerMap.set(Number(m[1]), normalizeMatchingAnswerValue(rest).toUpperCase());
       }
     }
 
@@ -591,7 +721,10 @@ export default function AdminEditTestPage() {
     let currentLines: string[] = [];
     let inMatching = false;
     let seenOptions = false;
-    const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)\s*/;
+    const optionHeaderRegex =
+      testData.subject === 'mathematics'
+        ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
+        : /^\s*([A-ZА-ЯІЇЄҐ])\.\s+/;
 
     const flushBlock = () => {
       if (currentId > 0 && currentLines.length > 0) {
@@ -603,7 +736,9 @@ export default function AdminEditTestPage() {
     };
 
     for (const line of bodyLines) {
-      const m = line.match(/^(\d+)\.\s*(.*)$/);
+      const m = line.match(
+        testData.subject === 'mathematics' ? /^(\d+)(?:\.)?\s*(.*)$/ : /^(\d+)\.\s*(.*)$/
+      );
       if (m) {
         const num = Number(m[1]);
         const isPotentialStart = num > currentId;
@@ -639,16 +774,22 @@ export default function AdminEditTestPage() {
       const qb = questionBlocks[idx];
       const listIndex = idx + 1;
       const ans = answerMap.get(qb.id) || '';
+      const isMathSubject = subjectSlug === 'mathematics';
+      const isForcedMatching = isMathSubject && qb.id >= 16 && qb.id <= 18;
+      const isForcedWritten = isMathSubject && qb.id >= 19 && qb.id <= 22;
       const imageMatch = qb.text.match(/\[(?:image|img)\s*:\s*([^\]]+)\]/i);
       const imageUrl = imageMatch ? imageMatch[1].trim() : '';
       const cleanedText = qb.text.replace(/\[(?:image|img)\s*:\s*[^\]]+\]/ig, '').trim();
       const lines = normalizeInline(cleanedText)
-        .replace(/^\d+\.\s*/, '')
+        .replace(testData.subject === 'mathematics' ? /^\d+(?:\.)?\s*/ : /^\d+\.\s*/, '')
         .split('\n')
         .map((l) => l.trim())
         .filter((l) => l && !/^\d{1,6}$/.test(l));
 
-      const optionHeaderRegex = /^\s*([A-ZА-ЯІЇЄҐ])(?:[.)]|:)\s*/;
+      const optionHeaderRegex =
+        testData.subject === 'mathematics'
+          ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
+          : /^\s*([A-ZА-ЯІЇЄҐ])\.\s+/;
       const optionLinesRaw: string[] = [];
       const optionLinesText: string[] = [];
       const leftMatchLines = lines.filter((l) => /^\d+\.\s/.test(l));
@@ -667,20 +808,25 @@ export default function AdminEditTestPage() {
       const options = optionLinesText;
       const answerLetters = ans.replace(/[^A-ZА-ЯІЇЄҐ]/g, '').toUpperCase();
       const sequenceHint = sequenceHintRegex.test(qb.text);
+      const suppressOptions =
+        /на\s+якому\s+рисунку\s+зображено/i.test(qb.text) ||
+        /на\s+якому\s+рисунку\s+зображена/i.test(qb.text);
 
       let type: EditQuestion['type'] = 'single_choice';
       let correctAnswer: EditQuestion['correctAnswer'] = 0;
 
-      const isMatching = /Установіть\s+відповідність/i.test(qb.text)
-        && leftMatchLines.length >= (subjectSlug === 'mathematics' ? 3 : 4)
-        && optionLinesRaw.length >= 4
-        && (subjectSlug === 'mathematics' ? answerLetters.length >= 3 : answerLetters.length === 4);
+      const isMatching = isForcedMatching
+        || (/Установіть\s+відповідність/i.test(qb.text)
+          && leftMatchLines.length >= (subjectSlug === 'mathematics' ? 3 : 4)
+          && optionLinesRaw.length >= 4
+          && (subjectSlug === 'mathematics' ? answerLetters.length >= 3 : answerLetters.length === 4));
       const isSequence = subjectSlug === 'history-ukraine'
         && sequenceHint
         && optionLinesRaw.length >= 4
         && answerLetters.length >= 4;
       const isSelectThree = answerLetters.length === 3 && !isMatching;
-      const isWritten = options.length === 0 && /^\d+$/.test(ans) && subjectSlug === 'mathematics';
+      const isWritten = isForcedWritten
+        || (options.length === 0 && /^\d+$/.test(ans) && subjectSlug === 'mathematics');
 
       if (isWritten) {
         type = 'written';
@@ -706,7 +852,7 @@ export default function AdminEditTestPage() {
             ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnNeedSeven')}`
             : t('adminCreateTest.bulkWarnNeedSeven');
         }
-      } else if (options.length >= 4) {
+      } else if (options.length >= 4 && !suppressOptions) {
         type = 'single_choice';
         const idx = letterOrder.indexOf(answerLetters[0]);
         correctAnswer = idx >= 0 ? idx : 0;
@@ -718,7 +864,7 @@ export default function AdminEditTestPage() {
         correctAnswer = 0;
         warnings[listIndex] = t('adminCreateTest.bulkWarnNoOptions');
       }
-      if (type === 'single_choice' && optionLinesText.length > 5) {
+      if (type === 'single_choice' && optionLinesText.length > 5 && !suppressOptions) {
         warnings[listIndex] = warnings[listIndex]
           ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnTooManyOptions')}`
           : t('adminCreateTest.bulkWarnTooManyOptions');
@@ -733,7 +879,7 @@ export default function AdminEditTestPage() {
           ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnSequence')}`
           : t('adminCreateTest.bulkWarnSequence');
       }
-      if ((isMatching || isSequence) && optionLinesRaw.length < 4) {
+      if ((isMatching || isSequence) && optionLinesRaw.length < 4 && !isForcedMatching) {
         warnings[listIndex] = warnings[listIndex]
           ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnNeedOptions')}`
           : t('adminCreateTest.bulkWarnNeedOptions');
@@ -760,7 +906,9 @@ export default function AdminEditTestPage() {
         type,
         text: questionText,
         imageUrl,
-        options: type === 'written' || type === 'matching'
+        options: suppressOptions
+          ? []
+          : type === 'written' || type === 'matching'
           ? []
           : type === 'select_three'
           ? Array.from({ length: 7 }, (_, i) => options[i] ?? '')
@@ -794,6 +942,179 @@ export default function AdminEditTestPage() {
     updateTestState(nextTest);
     setBulkWarnings((prev) => ({ ...prev, ...nextWarnings }));
     setInputMode('manual');
+  };
+
+  const normalizeInline = (input: string) => {
+    if (testData.subject !== 'mathematics') {
+      return input;
+    }
+    const lines = input.split('\n');
+    const optionToken = /(?:^|\s)([АБВГДЕЄ])(?:\.)?\s+(?=\S)/g;
+    const hasMultipleOptions = (line: string) => {
+      const matches = line.match(new RegExp(optionToken, 'g'));
+      return (matches?.length ?? 0) >= 2;
+    };
+    const next = lines.map((line) => {
+      let out = line;
+      out = out.replace(/^([АБВГДЕЄ])\s+(?=\S)/, '$1. ');
+      if (hasMultipleOptions(out)) {
+        out = out.replace(/([^\n])\s+(\d+\.)\s/g, '$1\n$2 ');
+        out = out.replace(/([^\n])\s+([АБВГДЕЄ])\s+(?=\S)/g, '$1\n$2. ');
+        out = out.replace(/([^\n])\s+([АБВГДЕЄ])(\.)\s/g, '$1\n$2$3 ');
+      }
+      return out;
+    });
+    return next.join('\n');
+  };
+
+  const normalizeBulkInput = (input: string) => {
+    const raw = input.replace(/\r\n/g, '\n').replace(/\u00A0/g, ' ');
+    const lines = raw
+      .split('\n')
+      .map((l) => l.replace(/[ \t]+/g, ' ').trim());
+    const expandedLines: string[] = [];
+    for (const line of lines) {
+      if (!line) continue;
+      if (testData.subject === 'mathematics') {
+        const parts = line.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
+        for (const part of parts) expandedLines.push(part.trim());
+      } else {
+        expandedLines.push(line);
+      }
+    }
+    const out: string[] = [];
+    const watermarkRegex = /(Український центр оцінювання якості освіти|©)/i;
+    const mathSkipRegex =
+      testData.subject === 'mathematics'
+        ? /(У\.?\s+завданнях|Розв[’']яжіть\s+завдання|Одержані\s+числові\s+відповіді|Відповідь\s+записуйте|відведеному\s+місці)/i
+        : null;
+    const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
+    const isQuestionStart = (line: string) =>
+      testData.subject === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
+    const optionLineRegex =
+      testData.subject === 'mathematics'
+        ? /^[АБВГДЕЄ](?:\.)?\s+/
+        : /^[A-ZА-ЯІЇЄҐ]\.\s+/;
+    const isOptionStart = (line: string) => optionLineRegex.test(line);
+    const isMathFragment = (line: string) =>
+      /^([0-9]+|[+\-−*/=^(){}\[\]∙·]|[xX𝑥])$/.test(line);
+
+    for (let i = 0; i < expandedLines.length; i++) {
+      let line = expandedLines[i];
+      if (!line) continue;
+      if (testData.subject === 'mathematics') {
+        const soloOpt = line.match(/^([АБВГДЕЄ])\.?$/);
+        if (soloOpt) {
+          const next = expandedLines[i + 1];
+          if (
+            next &&
+            !answersHeaderRegex.test(next) &&
+            !isQuestionStart(next) &&
+            !optionLineRegex.test(next)
+          ) {
+            line = `${soloOpt[1]} ${next}`.trim();
+            i += 1;
+          }
+        }
+      }
+      if (watermarkRegex.test(line)) continue;
+      if (mathSkipRegex && mathSkipRegex.test(line)) continue;
+      if (answersHeaderRegex.test(line)) {
+        out.push('ВІДПОВІДІ');
+        const rest = line.replace(answersHeaderRegex, '').trim();
+        if (rest) {
+          const bits = rest.split(/(?=\d+\s)/g).map((b) => b.trim()).filter(Boolean);
+          out.push(...bits);
+        }
+        continue;
+      }
+      if (isQuestionStart(line) || isOptionStart(line)) {
+        out.push(line);
+        continue;
+      }
+      if (out.length === 0) {
+        out.push(line);
+        continue;
+      }
+      const prev = out[out.length - 1];
+      if (isMathFragment(line) || isMathFragment(prev.slice(-1))) {
+        out[out.length - 1] = `${prev}${line}`;
+      } else {
+        out[out.length - 1] = prev.endsWith('-')
+          ? `${prev.slice(0, -1)}${line}`
+          : `${prev} ${line}`;
+      }
+    }
+    return out.join('\n').trim();
+  };
+
+  const enforceCanonicalFormat = (input: string) => {
+    if (testData.subject !== 'mathematics') return input;
+    const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
+    const lines = input.split('\n').map((l) => l.trim()).filter(Boolean);
+    const out: string[] = [];
+    const questionStart = /^\d+(?:\.)?\s+/;
+    const optionInline = /(?:^|\s)([АБВГДЕЄ])(?:\.)?\s+(?=\S)/g;
+    let inAnswers = false;
+    for (const line of lines) {
+      const cleanedLine =
+        testData.subject === 'mathematics' && !inAnswers
+          ? line.replace(/Відповідь\s*:\s*,\s*\./gi, '').trim()
+          : line;
+      if (!cleanedLine) continue;
+      if (answersHeaderRegex.test(cleanedLine)) {
+        out.push('ВІДПОВІДІ');
+        inAnswers = true;
+        const rest = cleanedLine.replace(answersHeaderRegex, '').trim();
+        if (rest) out.push(rest);
+        continue;
+      }
+      if (!inAnswers && questionStart.test(cleanedLine)) {
+        const m = cleanedLine.match(/^(\d+)(?:\.)?\s+(.+)$/);
+        if (m) {
+          out.push(`${m[1]}. ${m[2].trim()}`);
+          continue;
+        }
+      }
+      if (!inAnswers) {
+        const matches = [...cleanedLine.matchAll(optionInline)];
+        if (matches.length >= 2) {
+          for (let i = 0; i < matches.length; i++) {
+            const start = matches[i].index! + matches[i][0].length;
+            const end = i + 1 < matches.length ? matches[i + 1].index! : cleanedLine.length;
+            const text = cleanedLine.slice(start, end).trim();
+            if (text) out.push(`${matches[i][1]}. ${text}`);
+          }
+          continue;
+        }
+        const singleOpt = cleanedLine.match(/^([АБВГДЕЄ])\s+(.+)$/);
+        if (singleOpt) {
+          out.push(`${singleOpt[1]}. ${singleOpt[2].trim()}`);
+          continue;
+        }
+      }
+      out.push(cleanedLine);
+    }
+    if (out.includes('ВІДПОВІДІ')) {
+      const idx = out.indexOf('ВІДПОВІДІ');
+      const ans = out.slice(idx + 1).map((l) => {
+        const m = l.match(/^(\d+)[.)]?\s*(.+)$/);
+        return m ? `${m[1]}. ${normalizeMatchingAnswerValue(m[2].trim())}` : l;
+      });
+      return [...out.slice(0, idx + 1), ...ans].join('\n');
+    }
+    return out.join('\n');
+  };
+
+  const transformBulkText = () => {
+    setBulkError('');
+    const text = bulkText.trim();
+    if (!text) {
+      setBulkError(t('adminCreateTest.bulkEmpty'));
+      return;
+    }
+    const normalized = enforceCanonicalFormat(normalizeInline(normalizeBulkInput(text)));
+    setBulkNormalized(normalized);
   };
 
   if (loading) {
@@ -950,18 +1271,46 @@ export default function AdminEditTestPage() {
                   rows={8}
                   placeholder={t('adminCreateTest.bulkPlaceholder')}
                 />
-                {bulkError && (
-                  <p className="text-sm text-red-600 mt-2">{bulkError}</p>
-                )}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={parseBulkText}
+                    onClick={transformBulkText}
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg font-semibold"
+                  >
+                    Переробити
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => parseBulkText(bulkNormalized || bulkText)}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
                   >
                     {t('adminCreateTest.appendBulk')}
                   </button>
                 </div>
+                {bulkError && (
+                  <p className="text-sm text-red-600 mt-2">{bulkError}</p>
+                )}
+                <div className="flex items-center justify-between mt-4 mb-2">
+                  <label className="block text-sm font-medium">Перероблений текст</label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(bulkNormalized || '');
+                      } catch {}
+                    }}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  >
+                    Копіювати
+                  </button>
+                </div>
+                <textarea
+                  value={bulkNormalized}
+                  onChange={(e) => setBulkNormalized(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
+                  rows={8}
+                  placeholder="Після натискання «Переробити» тут з'явиться нормалізований текст"
+                />
               </div>
             )}
           </div>

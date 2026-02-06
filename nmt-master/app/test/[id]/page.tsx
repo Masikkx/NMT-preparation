@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth';
 import { formatTime } from '@/lib/scoring';
 import { useLanguageStore } from '@/store/language';
 import { checkAnswer } from '@/lib/scoring';
+import { InlineMath, BlockMath } from 'react-katex';
 
 interface Question {
   id: string;
@@ -721,6 +722,64 @@ export default function TestPage() {
   };
   const optionLetters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
 
+  const normalizeAutoMath = (text: string) => {
+    const lines = text.split('\n');
+    const normalizedLines = lines.map((line) => {
+      let next = line;
+      // Convert combining vector arrows to proper LaTeX vector notation
+      next = next.replace(/([A-Za-zА-ЯІЇЄҐ]{1,6})\s*[\u20D7\u20D6]+/g, (_, v) => `$\\overrightarrow{${v}}$`);
+      next = next.replace(
+        /log\s*([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Zа-яА-Я𝑥x𝑥])\s*=\s*([0-9]+(?:[.,][0-9]+)?)/g,
+        (_, base, v, num) => `$\\log_{${base}} ${v} = ${num}$`
+      );
+      next = next.replace(
+        /log\s*([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Zа-яА-Я𝑥x𝑥])/g,
+        (_, base, v) => `$\\log_{${base}} ${v}$`
+      );
+      next = next.replace(/√\s*([0-9a-zA-Z]+)/g, (_, v) => `$\\sqrt{${v}}$`);
+
+      const hasMathSymbols = /[∫√^_=]/.test(next);
+      const hasCyrillic = /[А-ЯІЇЄҐа-яіїєґ]/.test(next);
+      const hasLongWord = /[A-Za-z]{3,}/.test(next);
+      const hasDelimiters = /(\$\$|\$|\\\(|\\\)|\\\[|\\\]|\[math:|\[mathblock:)/.test(next);
+      if (hasMathSymbols && !hasCyrillic && !hasLongWord && !hasDelimiters) {
+        const latexSafe = next
+          .replace(/∫/g, '\\\\int ')
+          .replace(/[∙·]/g, '\\\\cdot ');
+        return `$${latexSafe}$`;
+      }
+      return next;
+    });
+    return normalizedLines.join('\n');
+  };
+
+  const renderMathText = (text: string) => {
+    if (!text) return null;
+    const normalized = normalizeAutoMath(text);
+    const pattern =
+      /(\$\$[\s\S]+?\$\$|\$[^$]+\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\[mathblock:[\s\S]+?\]|\[math:[\s\S]+?\])/g;
+    const parts = normalized.split(pattern).filter((p) => p !== '');
+    return parts.map((part, idx) => {
+      const isBlock = part.startsWith('$$') || part.startsWith('\\[') || part.startsWith('[mathblock:');
+      const isInline = part.startsWith('$') || part.startsWith('\\(') || part.startsWith('[math:');
+      if (isBlock || isInline) {
+        let math = part;
+        if (part.startsWith('$$')) math = part.slice(2, -2);
+        else if (part.startsWith('$')) math = part.slice(1, -1);
+        else if (part.startsWith('\\[')) math = part.slice(2, -2);
+        else if (part.startsWith('\\(')) math = part.slice(2, -2);
+        else if (part.startsWith('[mathblock:')) math = part.slice(11, -1);
+        else if (part.startsWith('[math:')) math = part.slice(6, -1);
+        return isBlock ? <BlockMath key={idx} math={math} /> : <InlineMath key={idx} math={math} />;
+      }
+      return (
+        <span key={idx} className="whitespace-pre-line">
+          {part}
+        </span>
+      );
+    });
+  };
+
 
   const getMatchingLists = (content: string) => {
     const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -806,7 +865,7 @@ export default function TestPage() {
         {q.content && (
           <div className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4 whitespace-pre-line">
             {q.type === 'matching' ? (
-              parts?.prompt || q.content
+              renderMathText(parts?.prompt || q.content)
             ) : inlineOptions.hasInline ? (
               <div className="space-y-2">
                 {splitContentWithImages(q.content || '').map((block, i) => {
@@ -833,13 +892,13 @@ export default function TestPage() {
                             return (
                               <div key={`optline-${i}-${ix}`} className="flex gap-2">
                                 <span className="font-semibold w-5">{m[1]}.</span>
-                                <span className="font-normal text-sm sm:text-base">{m[2]}</span>
+                                <span className="font-normal text-sm sm:text-base">{renderMathText(m[2])}</span>
                               </div>
                             );
                           }
                           return (
                             <div key={`line-${i}-${ix}`} className="font-semibold text-sm sm:text-lg">
-                              {line}
+                              {renderMathText(line)}
                             </div>
                           );
                         })}
@@ -848,7 +907,7 @@ export default function TestPage() {
                 })}
               </div>
             ) : (
-              q.content
+              renderMathText(q.content)
             )}
           </div>
         )}
@@ -867,7 +926,7 @@ export default function TestPage() {
                     .map((answer, aIdx) => (
                       <div key={answer.id} className="flex gap-2">
                         <span className="font-semibold w-5">{optionLetters[aIdx] || String(aIdx + 1)}</span>
-                        <span>{answer.content}</span>
+                        <span>{renderMathText(answer.content)}</span>
                       </div>
                     ))}
                 </div>
@@ -1099,7 +1158,7 @@ export default function TestPage() {
           correctTextMap[q.id] && (
             <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-sm">
               <span className="font-semibold">{t('test.correctAnswer')}:</span>{' '}
-              {correctTextMap[q.id]}
+              {renderMathText(correctTextMap[q.id])}
             </div>
           )}
 
