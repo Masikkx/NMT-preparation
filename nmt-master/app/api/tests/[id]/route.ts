@@ -102,8 +102,7 @@ export async function PUT(
       return 1;
     };
 
-    const result = await prisma.$transaction(async (tx) => {
-      const test = await tx.test.update({
+    const test = await prisma.test.update({
         where: { id },
         data: {
           title: body.title,
@@ -121,109 +120,106 @@ export async function PUT(
         },
       });
 
-      if (Array.isArray(normalizedQuestions)) {
-        if (normalizedQuestions.length === 0) {
-          await tx.answer.deleteMany({
-            where: { question: { testId: id } },
-          });
-          await tx.question.deleteMany({
-            where: { testId: id },
-          });
-          await tx.test.delete({ where: { id } });
-          return { deleted: true };
-        }
-        await tx.answer.deleteMany({
+    if (Array.isArray(normalizedQuestions)) {
+      if (normalizedQuestions.length === 0) {
+        await prisma.answer.deleteMany({
           where: { question: { testId: id } },
         });
-        await tx.question.deleteMany({
+        await prisma.question.deleteMany({
           where: { testId: id },
         });
+        await prisma.test.delete({ where: { id } });
+        return NextResponse.json({ deleted: true });
+      }
+      await prisma.answer.deleteMany({
+        where: { question: { testId: id } },
+      });
+      await prisma.question.deleteMany({
+        where: { testId: id },
+      });
 
-        let order = 0;
-        for (const q of normalizedQuestions) {
-          order += 1;
-          const matchingLen = q.type === 'matching' && Array.isArray(q.correctAnswer) ? q.correctAnswer.length : 0;
-          const questionPoints = q.points ?? (q.type === 'matching' && matchingLen >= 3 ? matchingLen : defaultPoints(q.type));
-          const createdQ = await tx.question.create({
-            data: {
-              testId: id,
-              type: q.type || 'single_choice',
-              content: q.text || q.content || '',
-              order,
-              points: questionPoints,
-              imageUrl: q.imageUrl || null,
-            },
-          });
+      let order = 0;
+      for (const q of normalizedQuestions) {
+        order += 1;
+        const matchingLen = q.type === 'matching' && Array.isArray(q.correctAnswer) ? q.correctAnswer.length : 0;
+        const questionPoints = q.points ?? (q.type === 'matching' && matchingLen >= 3 ? matchingLen : defaultPoints(q.type));
+        const createdQ = await prisma.question.create({
+          data: {
+            testId: id,
+            type: q.type || 'single_choice',
+            content: q.text || q.content || '',
+            order,
+            points: questionPoints,
+            imageUrl: q.imageUrl || null,
+          },
+        });
 
-          if (q.type === 'written') {
-            if (q.correctAnswer !== undefined && q.correctAnswer !== null && String(q.correctAnswer).trim() !== '') {
-              await tx.answer.create({
-                data: {
-                  questionId: createdQ.id,
-                  type: 'text',
-                  content: String(q.correctAnswer),
-                  isCorrect: true,
-                },
-              });
-            }
-          } else if (q.type === 'matching') {
-            const mapping = Array.isArray(q.correctAnswer) ? q.correctAnswer : [];
-            const rowCount = mapping.length >= 3 ? mapping.length : 4;
-            for (let i = 0; i < rowCount; i++) {
-              await tx.answer.create({
-                data: {
-                  questionId: createdQ.id,
-                  type: 'matching',
-                  content: String(i + 1),
-                  isCorrect: true,
-                  order: i,
-                  matchingPair: mapping[i] ? String(mapping[i]) : null,
-                },
-              });
-            }
-          } else if (q.type === 'select_three') {
-            const correct = Array.isArray(q.correctAnswer) ? q.correctAnswer.map(String) : [];
-            const opts = Array.isArray(q.options) ? q.options : [];
-            for (let i = 1; i <= 7; i++) {
-              await tx.answer.create({
-                data: {
-                  questionId: createdQ.id,
-                  type: 'multiple',
-                  content: String(opts[i - 1] ?? ''),
-                  isCorrect: correct.includes(String(i)),
-                  order: i,
-                },
-              });
-            }
-          } else if (Array.isArray(q.options) && q.options.length > 0) {
-            for (let i = 0; i < q.options.length; i++) {
-              const opt = q.options[i] ?? '';
-              let isCorrect = false;
-              if (q.type === 'single_choice') {
-                isCorrect = Number(q.correctAnswer) === i;
-              } else if (q.type === 'multiple_answers') {
-                if (Array.isArray(q.correctAnswer)) {
-                  isCorrect = q.correctAnswer.includes(i) || q.correctAnswer.includes(String(i));
-                }
+        if (q.type === 'written') {
+          if (q.correctAnswer !== undefined && q.correctAnswer !== null && String(q.correctAnswer).trim() !== '') {
+            await prisma.answer.create({
+              data: {
+                questionId: createdQ.id,
+                type: 'text',
+                content: String(q.correctAnswer),
+                isCorrect: true,
+              },
+            });
+          }
+        } else if (q.type === 'matching') {
+          const mapping = Array.isArray(q.correctAnswer) ? q.correctAnswer : [];
+          const rowCount = mapping.length >= 3 ? mapping.length : 4;
+          for (let i = 0; i < rowCount; i++) {
+            await prisma.answer.create({
+              data: {
+                questionId: createdQ.id,
+                type: 'matching',
+                content: String(i + 1),
+                isCorrect: true,
+                order: i,
+                matchingPair: mapping[i] ? String(mapping[i]) : null,
+              },
+            });
+          }
+        } else if (q.type === 'select_three') {
+          const correct = Array.isArray(q.correctAnswer) ? q.correctAnswer.map(String) : [];
+          const opts = Array.isArray(q.options) ? q.options : [];
+          for (let i = 1; i <= 7; i++) {
+            await prisma.answer.create({
+              data: {
+                questionId: createdQ.id,
+                type: 'multiple',
+                content: String(opts[i - 1] ?? ''),
+                isCorrect: correct.includes(String(i)),
+                order: i,
+              },
+            });
+          }
+        } else if (Array.isArray(q.options) && q.options.length > 0) {
+          for (let i = 0; i < q.options.length; i++) {
+            const opt = q.options[i] ?? '';
+            let isCorrect = false;
+            if (q.type === 'single_choice') {
+              isCorrect = Number(q.correctAnswer) === i;
+            } else if (q.type === 'multiple_answers') {
+              if (Array.isArray(q.correctAnswer)) {
+                isCorrect = q.correctAnswer.includes(i) || q.correctAnswer.includes(String(i));
               }
-              await tx.answer.create({
-                data: {
-                  questionId: createdQ.id,
-                  type: q.type === 'written' ? 'text' : q.type === 'multiple_answers' ? 'multiple' : 'single_choice',
-                  content: opt,
-                  isCorrect,
-                  order: i,
-                },
-              });
             }
+            await prisma.answer.create({
+              data: {
+                questionId: createdQ.id,
+                type: q.type === 'written' ? 'text' : q.type === 'multiple_answers' ? 'multiple' : 'single_choice',
+                content: opt,
+                isCorrect,
+                order: i,
+              },
+            });
           }
         }
       }
+    }
 
-      return test;
-    });
-
-    return NextResponse.json(result);
+    return NextResponse.json(test);
   } catch (error: any) {
     console.error('Update test error:', error);
     return NextResponse.json(
