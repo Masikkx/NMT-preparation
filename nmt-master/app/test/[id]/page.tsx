@@ -844,7 +844,8 @@ export default function TestPage() {
 
   const renderMathText = (text: string) => {
     if (!text) return null;
-    const normalized = normalizeAutoMath(text);
+    const unescaped = text.includes('\\\\') ? text.replace(/\\\\/g, '\\') : text;
+    const normalized = normalizeAutoMath(unescaped);
     const pattern =
       /(\$\$[\s\S]+?\$\$|\$[^$]+\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\[mathblock:[\s\S]+?\]|\[math:[\s\S]+?\])/g;
     const parts = normalized.split(pattern).filter((p) => p !== '');
