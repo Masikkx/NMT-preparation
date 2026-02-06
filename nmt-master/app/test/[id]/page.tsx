@@ -599,6 +599,9 @@ export default function TestPage() {
       ...test,
       questions: test.questions.map((q) => {
         if (q.id !== editQuestionId) return q;
+        const baseAnswers = q.answers ?? [];
+        const ensureBase = (idx: number) =>
+          baseAnswers[idx] || { id: `tmp-${q.id}-${idx}`, content: '', order: idx };
         const nextAnswers = (() => {
           if (q.type === 'written') {
             return [
@@ -620,7 +623,7 @@ export default function TestPage() {
           }
           if (q.type === 'select_three') {
             return editOptions.map((opt, idx) => ({
-              ...q.answers[idx],
+              ...ensureBase(idx),
               content: opt,
               order: idx + 1,
               isCorrect: editCorrectSelectThree.includes(String(idx + 1)),
@@ -628,14 +631,14 @@ export default function TestPage() {
           }
           if (q.type === 'multiple_answers') {
             return editOptions.map((opt, idx) => ({
-              ...q.answers[idx],
+              ...ensureBase(idx),
               content: opt,
               order: idx,
               isCorrect: Array.isArray(editCorrectSelectThree) ? editCorrectSelectThree.includes(String(idx)) : false,
             }));
           }
           return editOptions.map((opt, idx) => ({
-            ...q.answers[idx],
+            ...ensureBase(idx),
             content: opt,
             order: idx,
             isCorrect: idx === editCorrectSingle,
@@ -655,7 +658,7 @@ export default function TestPage() {
     setShowEditModal(false);
 
     try {
-      await fetch(`/api/tests/${testId}`, {
+      const res = await fetch(`/api/tests/${testId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -670,6 +673,9 @@ export default function TestPage() {
           questions: buildEditableQuestionsPayload(nextTest),
         }),
       });
+      if (res.ok) {
+        await fetchTest();
+      }
     } catch (error) {
       console.error('Error saving edited question:', error);
     }
