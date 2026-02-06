@@ -1070,43 +1070,31 @@ export default function TestPage() {
               </div>
             ) : inlineOptions.hasInline ? (
               <div className="space-y-2">
-                {splitContentWithImages(q.content || '').map((block, i) => {
-                  if (block.type === 'image') {
-                    return (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={`img-${i}`}
-                        src={block.value}
-                        alt="question"
-                        className="rounded"
-                        style={{ width: block.width ? `${block.width}px` : undefined, maxWidth: '100%', height: 'auto' }}
-                      />
-                    );
-                  }
-                  return (
-                    <div key={`txt-${i}`} className="space-y-1">
-                      {block.value
-                        .split('\n')
-                        .filter((l) => l.trim() !== '')
-                        .map((line, ix) => {
-                          const m = line.match(/^([A-ZА-ЯІЇЄҐ])\.\s*(.+)$/);
-                          if (m) {
-                            return (
-                              <div key={`optline-${i}-${ix}`} className="flex gap-2">
-                                <span className="font-semibold w-5">{m[1]}.</span>
-                                <span className="font-normal text-sm sm:text-base">{renderRichText(m[2])}</span>
-                              </div>
-                            );
-                          }
-                          return (
-                            <div key={`line-${i}-${ix}`} className="font-semibold text-sm sm:text-lg">
-                              {renderRichText(line)}
-                            </div>
-                          );
-                        })}
+                {splitContentWithImages(q.content || '')
+                  .filter((block) => block.type === 'image')
+                  .map((block, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={`img-${i}`}
+                      src={block.value}
+                      alt="question"
+                      className="rounded"
+                      style={{ width: block.width ? `${block.width}px` : undefined, maxWidth: '100%', height: 'auto' }}
+                    />
+                  ))}
+                {inlineOptions.prompt && (
+                  <div className="font-semibold text-sm sm:text-lg">
+                    {renderRichText(inlineOptions.prompt)}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  {inlineOptions.options.map((opt, optIdx) => (
+                    <div key={`opt-${optIdx}`} className="flex gap-2">
+                      <span className="font-semibold w-5">{optionLetters[optIdx] || String(optIdx + 1)}.</span>
+                      <span className="font-normal text-sm sm:text-base">{renderRichText(opt)}</span>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
             ) : (
               renderRichText(q.content)
