@@ -498,6 +498,43 @@ export default function TestPage() {
     return '';
   };
 
+  const getImageToken = (text: string) => {
+    const match = text.match(/\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/i);
+    if (!match) return null;
+    return { url: match[1].trim(), width: match[2] ? Number(match[2]) : null, full: match[0] };
+  };
+
+  const upsertImageToken = (text: string, url: string, width?: number | null) => {
+    const token = width ? `[image: ${url}|w=${width}]` : `[image: ${url}]`;
+    const existing = text.match(/\[(?:image|img)\s*:\s*([^\]|]+)\s*(?:\|\s*w\s*=\s*(\d+))?\]/i);
+    if (existing) {
+      return text.replace(existing[0], token);
+    }
+    return text ? `${text}\n${token}` : token;
+  };
+
+  const insertImageToken = (url: string) => {
+    if (!url) return;
+    const token = `[image: ${url}]`;
+    insertAtCursor(editTextRef, editText, setEditText, token);
+  };
+
+  const handlePasteImageIntoEdit = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          const url = await uploadQuestionImage(file);
+          if (url) insertImageToken(url);
+          break;
+        }
+      }
+    }
+  };
+
   const openEditForQuestion = (q: Question) => {
     const sortedAnswers = [...q.answers].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const options = sortedAnswers.map((a) => a.content ?? '');
@@ -1468,6 +1505,7 @@ export default function TestPage() {
                   ref={editTextRef}
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
+                  onPaste={handlePasteImageIntoEdit}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
                   rows={4}
                 />
@@ -1475,6 +1513,37 @@ export default function TestPage() {
                   <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Попередній перегляд</div>
                   {renderMathText(editText)}
                 </div>
+                {(() => {
+                  const token = getImageToken(editText || '');
+                  if (!token?.url) return null;
+                  const width = token.width ?? 360;
+                  return (
+                    <div className="mt-3 space-y-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={token.url}
+                        alt="preview"
+                        style={{ width, maxWidth: '100%', height: 'auto' }}
+                        className="rounded border border-slate-200 dark:border-slate-700"
+                      />
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs text-slate-500">Ширина: {width}px</label>
+                        <input
+                          type="range"
+                          min={200}
+                          max={900}
+                          step={20}
+                          value={width}
+                          onChange={(e) => {
+                            const nextWidth = Number(e.target.value);
+                            const nextText = upsertImageToken(editText || '', token.url, nextWidth);
+                            setEditText(nextText);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>
