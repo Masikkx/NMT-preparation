@@ -121,6 +121,8 @@ export default function ResultsPage() {
           alt="question"
           className="my-2 max-w-full rounded"
           style={width ? { width } : undefined}
+          loading="lazy"
+          decoding="async"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
@@ -384,7 +386,7 @@ export default function ResultsPage() {
                   </div>
                   {q.imageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={q.imageUrl} alt="question" className="mb-3 max-h-64 rounded" />
+                    <img src={q.imageUrl} alt="question" className="mb-3 max-h-64 rounded" loading="lazy" decoding="async" />
                   )}
                   <div className="text-sm text-slate-600 dark:text-slate-400">
                     <span className="font-semibold">{t('results.yourAnswer')}:</span>{' '}

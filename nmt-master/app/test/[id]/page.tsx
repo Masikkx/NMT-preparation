@@ -900,6 +900,8 @@ export default function TestPage() {
           alt="question"
           className="my-2 max-w-full rounded"
           style={width ? { width } : undefined}
+          loading="lazy"
+          decoding="async"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
@@ -1113,7 +1115,7 @@ export default function TestPage() {
         )}
         {q.imageUrl && !/\[(?:image|img)\s*:\s*[^\]]+\]/i.test(q.content || '') && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={q.imageUrl} alt="question" className="mb-4 max-h-80 rounded" />
+          <img src={q.imageUrl} alt="question" className="mb-4 max-h-80 rounded" loading="lazy" decoding="async" />
         )}
 
         <div className="space-y-4 mb-6">
