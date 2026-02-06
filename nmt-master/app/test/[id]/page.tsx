@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { formatTime } from '@/lib/scoring';
@@ -71,6 +71,7 @@ export default function TestPage() {
   const [editCorrectWritten, setEditCorrectWritten] = useState('');
   const [editCorrectMatching, setEditCorrectMatching] = useState<string[]>([]);
   const [editCorrectSelectThree, setEditCorrectSelectThree] = useState<string[]>([]);
+  const editTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -780,6 +781,55 @@ export default function TestPage() {
     });
   };
 
+  const insertAtCursor = (
+    ref: React.RefObject<HTMLTextAreaElement | null>,
+    value: string,
+    setValue: (next: string) => void,
+    insert: string,
+    cursorOffset?: number
+  ) => {
+    const el = ref.current;
+    if (!el) {
+      setValue(value + insert);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const next = `${before}${insert}${after}`;
+    setValue(next);
+    requestAnimationFrame(() => {
+      const pos = cursorOffset !== undefined ? start + cursorOffset : start + insert.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const wrapSelection = (
+    ref: React.RefObject<HTMLTextAreaElement | null>,
+    value: string,
+    setValue: (next: string) => void,
+    left: string,
+    right: string
+  ) => {
+    const el = ref.current;
+    if (!el) {
+      setValue(`${value}${left}${right}`);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const selection = value.slice(start, end);
+    const next = `${value.slice(0, start)}${left}${selection}${right}${value.slice(end)}`;
+    setValue(next);
+    requestAnimationFrame(() => {
+      const pos = start + left.length + selection.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
 
   const getMatchingLists = (content: string) => {
     const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -1225,12 +1275,138 @@ export default function TestPage() {
             <div className="mt-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Текст питання</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => wrapSelection(editTextRef, editText, setEditText, '$', '$')}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    $…$
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$x^2$', 4)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    x²
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\sqrt{}$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    √
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\frac{}{}$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    a/b
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\int_{}^{}$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ∫
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\sum_{}^{}$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    Σ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\log_{}$', 6)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    logₐ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$|x|$', 4)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    |x|
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$x^{}$', 4)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    x^n
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\pi$', 4)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    π
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$e^{}$', 4)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    e^x
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\le$', 5)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ≤
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\ge$', 5)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ≥
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\ne$', 5)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ≠
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\angle$', 8)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ∠
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\perp$', 7)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ⟂
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor(editTextRef, editText, setEditText, '$\\pm$', 5)}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    ±
+                  </button>
+                </div>
                 <textarea
+                  ref={editTextRef}
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
                   rows={4}
                 />
+                <div className="mt-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm">
+                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Попередній перегляд</div>
+                  {renderMathText(editText)}
+                </div>
               </div>
 
               <div>
