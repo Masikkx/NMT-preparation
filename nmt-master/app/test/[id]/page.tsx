@@ -1744,7 +1744,6 @@ export default function TestPage() {
                       </div>
                     ))}
                   </div>
-                  )}
                   {editTarget.type === 'single_choice' && editOptions.length < 5 && (
                     <button
                       type="button"
