@@ -149,7 +149,12 @@ export default function AdminEditTestPage() {
         else if (part.startsWith('\\(')) math = part.slice(2, -2);
         else if (part.startsWith('[mathblock:')) math = part.slice(11, -1);
         else if (part.startsWith('[math:')) math = part.slice(6, -1);
-        return isBlock ? <BlockMath key={idx} math={math} /> : <InlineMath key={idx} math={math} />;
+        const needsBlock =
+          isBlock ||
+          /\\begin\{array\}|\\\\/.test(math) ||
+          /\\left\s*\\\{/.test(math) ||
+          /\\right\s*\\\./.test(math);
+        return needsBlock ? <BlockMath key={idx} math={math} /> : <InlineMath key={idx} math={math} />;
       }
       return (
         <span key={idx} className="whitespace-pre-line">

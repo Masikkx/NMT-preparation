@@ -76,6 +76,21 @@ export default function ResultsPage() {
     (result as any)?._testType === 'topic' ||
     (result as any)?.test?.type === 'topic';
 
+  const subjectSlug =
+    (result as any)?.attempt?.test?.subject?.slug ||
+    (result as any)?.test?.subject?.slug ||
+    '';
+  const subjectName =
+    (result as any)?.attempt?.test?.subject?.name ||
+    (result as any)?.test?.subject?.name ||
+    '';
+  const isMathSubject =
+    subjectSlug === 'mathematics' ||
+    subjectSlug === 'math' ||
+    subjectName.toLowerCase().includes('матем') ||
+    subjectName.toLowerCase().includes('math');
+  const isNotPassed = isMathSubject && (result?.correctAnswers ?? 0) < 5;
+
   const topicTotal =
     (result as any)?._totalQuestions || result?.totalQuestions || 0;
   const topicPoints = (result as any)?._earnedPoints;
@@ -155,7 +170,7 @@ export default function ResultsPage() {
                       {t('results.nmtScale')}
                     </p>
                     <p className="text-4xl font-bold text-indigo-600 dark:text-indigo-300">
-                      {result.scaledScore === 0 ? t('results.notPassed') : result.scaledScore}
+                      {isNotPassed ? t('results.notPassed') : result.scaledScore}
                     </p>
                     <p className="text-slate-600 dark:text-slate-400 text-sm mt-2">
                       {result.percentage.toFixed(1)}% {t('results.accuracy')}

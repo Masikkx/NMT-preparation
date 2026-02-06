@@ -124,9 +124,14 @@ export async function POST(
     const totalQuestions = test.questions.length;
     const rawScore = calculatePercentage(correctCount, totalQuestions);
     const subjectSlug = test.subject?.slug || '';
-    const useNmtScale = test.type === 'past_nmt' || subjectSlug === 'mathematics';
-    const scaledScore = useNmtScale
-      ? convertToNMTScale(correctCount, subjectSlug)
+    const subjectName = test.subject?.name?.toLowerCase() || '';
+    const isMath =
+      subjectSlug === 'mathematics' ||
+      subjectSlug === 'math' ||
+      subjectName.includes('матем') ||
+      subjectName.includes('math');
+    const scaledScore = isMath
+      ? convertToNMTScale(correctCount, 'mathematics')
       : earnedPoints;
     const timeSpent = body.timeSpent || 0;
 
