@@ -561,6 +561,12 @@ export default function TestPage() {
     setEditCorrectMatching(matchingPairs.length > 0 ? matchingPairs : ['', '', '', '']);
     setEditCorrectSelectThree(selectThree.length > 0 ? selectThree : ['', '', '']);
     setShowEditModal(true);
+    requestAnimationFrame(() => {
+      const el = editTextRef.current;
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    });
   };
 
   const buildEditableQuestionsPayload = (nextTest: Test) => {
@@ -1563,14 +1569,19 @@ export default function TestPage() {
                     a⃗
                   </button>
                 </div>
-                <textarea
-                  ref={editTextRef}
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  onPaste={handlePasteImageIntoEdit}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
-                  rows={4}
-                />
+                  <textarea
+                    ref={editTextRef}
+                    value={editText}
+                    onChange={(e) => {
+                      setEditText(e.target.value);
+                      const el = e.target;
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }}
+                    onPaste={handlePasteImageIntoEdit}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                    rows={4}
+                  />
                 <div className="mt-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm">
                   <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Попередній перегляд</div>
                   {renderMathText(editText)}
