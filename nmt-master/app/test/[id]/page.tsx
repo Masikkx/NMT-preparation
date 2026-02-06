@@ -976,7 +976,10 @@ export default function TestPage() {
   };
 
   const renderQuestionCard = (q: Question, idx: number) => {
-    const parts = q.type === 'matching' ? getMatchingLists(q.content || '') : null;
+    const matchingContent = q.type === 'matching'
+      ? (q.content || '').replace(/\[(?:image|img)\s*:\s*[^\]]+\]/gi, '')
+      : q.content || '';
+    const parts = q.type === 'matching' ? getMatchingLists(matchingContent) : null;
     const inlineOptions = (q.type === 'single_choice' || q.type === 'multiple_answers')
       ? parseInlineOptionsFromContent(q.content || '')
       : { hasInline: false, options: [], prompt: q.content || '' };
@@ -1004,7 +1007,21 @@ export default function TestPage() {
         {q.content && (
           <div className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4 whitespace-pre-line">
             {q.type === 'matching' ? (
-              renderMathText(parts?.prompt || q.content)
+              <div className="space-y-3">
+                {splitContentWithImages(q.content || '')
+                  .filter((block) => block.type === 'image')
+                  .map((block, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={`match-img-${i}`}
+                      src={block.value}
+                      alt="question"
+                      className="rounded"
+                      style={{ width: block.width ? `${block.width}px` : undefined, maxWidth: '100%', height: 'auto' }}
+                    />
+                  ))}
+                <div>{renderMathText(parts?.prompt || matchingContent)}</div>
+              </div>
             ) : inlineOptions.hasInline ? (
               <div className="space-y-2">
                 {splitContentWithImages(q.content || '').map((block, i) => {
