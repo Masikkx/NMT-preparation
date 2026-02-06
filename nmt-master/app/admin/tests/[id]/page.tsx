@@ -45,6 +45,7 @@ export default function AdminEditTestPage() {
     testRef.current = next;
     setTest(next);
   };
+  const getSubjectSlug = () => testRef.current?.subject?.slug || test?.subject?.slug || '';
   const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
   const [bulkText, setBulkText] = useState('');
   const [bulkNormalized, setBulkNormalized] = useState('');
@@ -507,6 +508,7 @@ export default function AdminEditTestPage() {
   const parseBulkText = (sourceText?: string) => {
     const base = testRef.current ?? test;
     if (!base) return;
+    const subjectSlug = base.subject?.slug || '';
     setBulkError('');
     setBulkWarnings({});
     if (editingIndex !== null) {
@@ -526,7 +528,7 @@ export default function AdminEditTestPage() {
     }
 
     const normalizeInline = (input: string) => {
-      if (testData.subject !== 'mathematics') {
+      if (subjectSlug !== 'mathematics') {
         return input;
       }
       const lines = input.split('\n');
@@ -556,7 +558,7 @@ export default function AdminEditTestPage() {
       const expandedLines: string[] = [];
       for (const line of lines) {
         if (!line) continue;
-        if (testData.subject === 'mathematics') {
+        if (subjectSlug === 'mathematics') {
           const parts = line.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
           for (const part of parts) expandedLines.push(part.trim());
         } else {
@@ -566,14 +568,14 @@ export default function AdminEditTestPage() {
       const out: string[] = [];
       const watermarkRegex = /(Український центр оцінювання якості освіти|©)/i;
       const mathSkipRegex =
-        testData.subject === 'mathematics'
+        subjectSlug === 'mathematics'
           ? /(У\.?\s+завданнях|Розв[’']яжіть\s+завдання|Одержані\s+числові\s+відповіді|Відповідь\s+записуйте|відведеному\s+місці)/i
           : null;
       const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
       const isQuestionStart = (line: string) =>
-        testData.subject === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
+        subjectSlug === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
       const optionLineRegex =
-        testData.subject === 'mathematics'
+        subjectSlug === 'mathematics'
           ? /^[АБВГДЕЄ](?:\.)?\s+/
           : /^[A-ZА-ЯІЇЄҐ]\.\s+/;
       const isOptionStart = (line: string) => optionLineRegex.test(line);
@@ -584,7 +586,7 @@ export default function AdminEditTestPage() {
       for (let i = 0; i < expandedLines.length; i++) {
         let line = expandedLines[i];
         if (!line) continue;
-        if (testData.subject === 'mathematics') {
+        if (subjectSlug === 'mathematics') {
           const soloOpt = line.match(/^([АБВГДЕЄ])\.?$/);
           if (soloOpt) {
             const next = expandedLines[i + 1];
@@ -631,7 +633,7 @@ export default function AdminEditTestPage() {
     };
 
     const enforceCanonicalFormat = (input: string) => {
-      if (testData.subject !== 'mathematics') return input;
+      if (subjectSlug !== 'mathematics') return input;
       const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
       const lines = input.split('\n').map((l) => l.trim()).filter(Boolean);
       const out: string[] = [];
@@ -641,7 +643,7 @@ export default function AdminEditTestPage() {
 
       for (const line of lines) {
         const cleanedLine =
-          testData.subject === 'mathematics' && !inAnswers
+          getSubjectSlug() === 'mathematics' && !inAnswers
             ? line.replace(/Відповідь\s*:\s*,\s*\./gi, '').trim()
             : line;
         if (!cleanedLine) continue;
@@ -722,7 +724,7 @@ export default function AdminEditTestPage() {
     let inMatching = false;
     let seenOptions = false;
     const optionHeaderRegex =
-      testData.subject === 'mathematics'
+      getSubjectSlug() === 'mathematics'
         ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
         : /^\s*([A-ZА-ЯІЇЄҐ])\.\s+/;
 
@@ -737,7 +739,7 @@ export default function AdminEditTestPage() {
 
     for (const line of bodyLines) {
       const m = line.match(
-        testData.subject === 'mathematics' ? /^(\d+)(?:\.)?\s*(.*)$/ : /^(\d+)\.\s*(.*)$/
+        getSubjectSlug() === 'mathematics' ? /^(\d+)(?:\.)?\s*(.*)$/ : /^(\d+)\.\s*(.*)$/
       );
       if (m) {
         const num = Number(m[1]);
@@ -781,13 +783,13 @@ export default function AdminEditTestPage() {
       const imageUrl = imageMatch ? imageMatch[1].trim() : '';
       const cleanedText = qb.text.replace(/\[(?:image|img)\s*:\s*[^\]]+\]/ig, '').trim();
       const lines = normalizeInline(cleanedText)
-        .replace(testData.subject === 'mathematics' ? /^\d+(?:\.)?\s*/ : /^\d+\.\s*/, '')
+        .replace(getSubjectSlug() === 'mathematics' ? /^\d+(?:\.)?\s*/ : /^\d+\.\s*/, '')
         .split('\n')
         .map((l) => l.trim())
         .filter((l) => l && !/^\d{1,6}$/.test(l));
 
       const optionHeaderRegex =
-        testData.subject === 'mathematics'
+        getSubjectSlug() === 'mathematics'
           ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
           : /^\s*([A-ZА-ЯІЇЄҐ])\.\s+/;
       const optionLinesRaw: string[] = [];
@@ -945,7 +947,7 @@ export default function AdminEditTestPage() {
   };
 
   const normalizeInline = (input: string) => {
-    if (testData.subject !== 'mathematics') {
+    if (getSubjectSlug() !== 'mathematics') {
       return input;
     }
     const lines = input.split('\n');
@@ -975,7 +977,7 @@ export default function AdminEditTestPage() {
     const expandedLines: string[] = [];
     for (const line of lines) {
       if (!line) continue;
-      if (testData.subject === 'mathematics') {
+      if (getSubjectSlug() === 'mathematics') {
         const parts = line.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
         for (const part of parts) expandedLines.push(part.trim());
       } else {
@@ -985,14 +987,14 @@ export default function AdminEditTestPage() {
     const out: string[] = [];
     const watermarkRegex = /(Український центр оцінювання якості освіти|©)/i;
     const mathSkipRegex =
-      testData.subject === 'mathematics'
+      getSubjectSlug() === 'mathematics'
         ? /(У\.?\s+завданнях|Розв[’']яжіть\s+завдання|Одержані\s+числові\s+відповіді|Відповідь\s+записуйте|відведеному\s+місці)/i
         : null;
     const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
     const isQuestionStart = (line: string) =>
-      testData.subject === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
+      getSubjectSlug() === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
     const optionLineRegex =
-      testData.subject === 'mathematics'
+      getSubjectSlug() === 'mathematics'
         ? /^[АБВГДЕЄ](?:\.)?\s+/
         : /^[A-ZА-ЯІЇЄҐ]\.\s+/;
     const isOptionStart = (line: string) => optionLineRegex.test(line);
@@ -1002,7 +1004,7 @@ export default function AdminEditTestPage() {
     for (let i = 0; i < expandedLines.length; i++) {
       let line = expandedLines[i];
       if (!line) continue;
-      if (testData.subject === 'mathematics') {
+      if (getSubjectSlug() === 'mathematics') {
         const soloOpt = line.match(/^([АБВГДЕЄ])\.?$/);
         if (soloOpt) {
           const next = expandedLines[i + 1];
@@ -1049,7 +1051,7 @@ export default function AdminEditTestPage() {
   };
 
   const enforceCanonicalFormat = (input: string) => {
-    if (testData.subject !== 'mathematics') return input;
+    if (getSubjectSlug() !== 'mathematics') return input;
     const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
     const lines = input.split('\n').map((l) => l.trim()).filter(Boolean);
     const out: string[] = [];
@@ -1058,7 +1060,7 @@ export default function AdminEditTestPage() {
     let inAnswers = false;
     for (const line of lines) {
       const cleanedLine =
-        testData.subject === 'mathematics' && !inAnswers
+        getSubjectSlug() === 'mathematics' && !inAnswers
           ? line.replace(/Відповідь\s*:\s*,\s*\./gi, '').trim()
           : line;
       if (!cleanedLine) continue;
@@ -1844,3 +1846,4 @@ export default function AdminEditTestPage() {
     </div>
   );
 }
+
