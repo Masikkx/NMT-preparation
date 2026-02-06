@@ -1518,6 +1518,21 @@ export default function AdminEditTestPage() {
                       questionTextRef,
                       currentQuestion.text || '',
                       (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                      '$\\left\\{\\begin{array}{l}\n\\end{array}\\right.$',
+                      25
+                    )
+                  }
+                  className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  {`{ |`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    insertAtCursor(
+                      questionTextRef,
+                      currentQuestion.text || '',
+                      (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
                       '$\\sqrt[]{}$',
                       7
                     )
@@ -2188,6 +2203,21 @@ export default function AdminEditTestPage() {
                           className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
                           {`{ }`}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            insertAtCursor(
+                              questionTextRef,
+                              currentQuestion.text || '',
+                              (next) => setCurrentQuestion({ ...currentQuestion, text: next }),
+                              '$\\left\\{\\begin{array}{l}\n\\end{array}\\right.$',
+                              25
+                            )
+                          }
+                          className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          {`{ |`}
                         </button>
                         <button
                           type="button"
