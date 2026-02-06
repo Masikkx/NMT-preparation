@@ -1362,7 +1362,7 @@ export default function TestPage() {
       )}
       {showEditModal && editTarget && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 w-full max-w-2xl shadow-xl border border-slate-200 dark:border-slate-700 max-h-[85vh] overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4 w-full max-w-2xl shadow-xl border border-slate-200 dark:border-slate-700 max-h-[90vh] sm:max-h-[85vh] overflow-hidden">
           <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-bold mb-1">Редагування питання</h3>
@@ -1376,7 +1376,7 @@ export default function TestPage() {
               </button>
             </div>
 
-            <div className="mt-3 space-y-3 overflow-y-auto pr-1 max-h-[70vh] text-sm">
+            <div className="mt-3 space-y-3 overflow-y-auto pr-1 max-h-[72vh] sm:max-h-[70vh] text-sm">
               <div>
                 <label className="block text-sm font-medium mb-2">Текст питання</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -1616,13 +1616,13 @@ export default function TestPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Зображення</label>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={editImageUrl}
                     onChange={(e) => setEditImageUrl(e.target.value)}
                     placeholder="https://..."
-                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700"
+                    className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700 text-sm"
                   />
                   <input
                     type="file"
@@ -1633,6 +1633,7 @@ export default function TestPage() {
                       const url = await uploadQuestionImage(file);
                       if (url) setEditImageUrl(url);
                     }}
+                    className="text-sm"
                   />
                 </div>
               </div>
@@ -1744,22 +1745,22 @@ export default function TestPage() {
               )}
             </div>
 
-            <div className="mt-5 flex gap-3">
+            <div className="mt-4 flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() => saveEditedQuestion(false)}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+                className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm sm:text-base"
               >
                 Зберегти
               </button>
               <button
                 onClick={() => saveEditedQuestion(true)}
-                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold"
+                className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-sm sm:text-base"
               >
                 Примусово зберегти
               </button>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="flex-1 px-4 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 rounded-lg font-semibold"
+                className="flex-1 px-3 py-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 rounded-lg font-semibold text-sm sm:text-base"
               >
                 Скасувати
               </button>
