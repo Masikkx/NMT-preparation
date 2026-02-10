@@ -35,6 +35,8 @@ export default function CreateTestPage() {
   const [bulkText, setBulkText] = useState('');
   const [bulkNormalized, setBulkNormalized] = useState('');
   const [bulkError, setBulkError] = useState('');
+  const [bulkOcrError, setBulkOcrError] = useState('');
+  const [bulkOcrLoading, setBulkOcrLoading] = useState(false);
   const [bulkWarnings, setBulkWarnings] = useState<Record<number, string>>({});
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question>({
@@ -223,6 +225,42 @@ export default function CreateTestPage() {
           if (url) insertImageToken(url);
           break;
         }
+      }
+    }
+  };
+
+  const runBulkOcr = async (file: File) => {
+    setBulkOcrError('');
+    setBulkOcrLoading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file, file.name || 'image.png');
+      const res = await fetch('/api/ocr', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'OCR failed');
+      }
+      const text = typeof data?.text === 'string' ? data.text : '';
+      setBulkText(text.trim());
+      setBulkNormalized('');
+    } catch (err) {
+      setBulkOcrError(err instanceof Error ? err.message : 'OCR failed');
+    } finally {
+      setBulkOcrLoading(false);
+    }
+  };
+
+  const handleBulkPaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          await runBulkOcr(file);
+        }
+        break;
       }
     }
   };
@@ -1152,10 +1190,30 @@ export default function CreateTestPage() {
                 <textarea
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
+                  onPaste={handleBulkPaste}
                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700"
                   rows={8}
                   placeholder={t('adminCreateTest.bulkPlaceholder')}
                 />
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <span>{t('adminCreateTest.ocrHint')}</span>
+                  <label className="inline-flex items-center gap-2 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void runBulkOcr(file);
+                        e.currentTarget.value = '';
+                      }}
+                    />
+                    {bulkOcrLoading ? t('adminCreateTest.ocrRunning') : t('adminCreateTest.ocrFromImage')}
+                  </label>
+                </div>
+                {bulkOcrError && (
+                  <p className="text-sm text-red-600 mt-2">{bulkOcrError}</p>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
