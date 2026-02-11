@@ -133,7 +133,7 @@ export default function Home() {
         {/* Power Features */}
         <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
-            <div className="text-2xl mb-3">🔥</div>
+            <div className="text-2xl mb-3">📅</div>
             <h3 className="text-xl font-bold mb-2">{t('home.featureStreakTitle')}</h3>
             <p className="text-slate-600 dark:text-slate-400">
               {t('home.featureStreakDesc')}

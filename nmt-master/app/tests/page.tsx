@@ -292,30 +292,37 @@ export default function TestsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tests.map((test) => (
+            {tests.map((test, index) => (
               <div
                 key={test.id}
-                className="bg-white dark:bg-slate-800 rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 dark:border-slate-700 overflow-hidden"
+                className="bg-white dark:bg-slate-800 rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col"
               >
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
+                <div className="p-6 flex flex-col h-full">
+                  <div className="flex items-start justify-between mb-3 gap-3">
                     <h3 className="text-lg font-bold flex-1">{test.title}</h3>
-                    {resultMap[test.id] && (
-                      <div
-                        className="relative w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold text-slate-800 dark:text-slate-100"
-                        style={{
-                          background: `conic-gradient(#16a34a ${Math.round((resultMap[test.id].correctAnswers / Math.max(1, resultMap[test.id].totalQuestions)) * 100)}%, #ef4444 0)`,
-                        }}
-                      >
-                        <div className="absolute inset-1 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center">
-                          <span>
-                            {resultMap[test.id].attempt.test.type === 'topic'
-                              ? `${resultMap[test.id].correctAnswers}/${resultMap[test.id].totalQuestions}`
-                              : resultMap[test.id].scaledScore}
-                          </span>
+                    <div className="flex flex-col items-end gap-2">
+                      {test.type === 'topic' && (
+                        <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                          Тема {test.historyTopicCode ?? index + 1}
+                        </span>
+                      )}
+                      {resultMap[test.id] && (
+                        <div
+                          className="relative w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold text-slate-800 dark:text-slate-100"
+                          style={{
+                            background: `conic-gradient(#16a34a ${Math.round((resultMap[test.id].correctAnswers / Math.max(1, resultMap[test.id].totalQuestions)) * 100)}%, #ef4444 0)`,
+                          }}
+                        >
+                          <div className="absolute inset-1 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center">
+                            <span>
+                              {resultMap[test.id].attempt.test.type === 'topic'
+                                ? `${resultMap[test.id].correctAnswers}/${resultMap[test.id].totalQuestions}`
+                                : resultMap[test.id].scaledScore}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
 
                   {test.description && (
@@ -337,7 +344,7 @@ export default function TestsPage() {
 
                   <Link
                     href={`/test/${test.id}`}
-                    className="block w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition text-center"
+                    className="mt-auto block w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition text-center"
                   >
                     {t('tests.startTest')}
                   </Link>

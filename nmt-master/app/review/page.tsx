@@ -21,7 +21,20 @@ type ReviewEvent = {
   intervalDays: number;
 };
 
+type ReviewStatusMap = Record<string, boolean>;
+
+type SubjectStats = {
+  subject: string;
+  planned: number;
+  completed: number;
+  completionRate: number;
+  topTopic: string;
+  topTopicCompletedCount: number;
+  streakDays: number;
+};
+
 const STORAGE_KEY = 'nmt-review-plan-v1';
+const STATUS_STORAGE_KEY = 'nmt-review-status-v1';
 const REVIEW_INTERVALS = [1, 3, 7, 14, 28] as const;
 
 const SUBJECTS = [
@@ -62,6 +75,24 @@ const getIntervalLabel = (days: number, lang: 'uk' | 'en') => {
   return `Review after ${days} days`;
 };
 
+const getEventKey = (event: Pick<ReviewEvent, 'itemId' | 'reviewDate' | 'intervalDays'>): string =>
+  `${event.itemId}__${event.reviewDate}__${event.intervalDays}`;
+
+const getCurrentStreakDays = (dates: string[]): number => {
+  if (dates.length === 0) return 0;
+  const uniqueSorted = Array.from(new Set(dates)).sort((a, b) => b.localeCompare(a));
+  let streak = 0;
+  const cursor = parseYmdLocal(toYmd(new Date()));
+
+  for (const day of uniqueSorted) {
+    if (toYmd(cursor) !== day) break;
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+};
+
 export default function ReviewPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -87,6 +118,17 @@ export default function ReviewPage() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatusMap>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(STATUS_STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as ReviewStatusMap;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     if (!user) {
@@ -97,6 +139,10 @@ export default function ReviewPage() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
+
+  useEffect(() => {
+    localStorage.setItem(STATUS_STORAGE_KEY, JSON.stringify(reviewStatus));
+  }, [reviewStatus]);
 
   const reviewEvents = useMemo<ReviewEvent[]>(() => {
     return items.flatMap((item) =>
@@ -124,6 +170,75 @@ export default function ReviewPage() {
 
   const todayEvents = eventsByDate.get(today) || [];
   const selectedDateEvents = eventsByDate.get(selectedDate) || [];
+
+  const subjectStats = useMemo<SubjectStats[]>(() => {
+    if (reviewEvents.length === 0) return [];
+
+    type Acc = {
+      planned: number;
+      completed: number;
+      topicCompleted: Map<string, number>;
+      completedDates: string[];
+    };
+
+    const bySubject = new Map<string, Acc>();
+
+    for (const event of reviewEvents) {
+      if (!bySubject.has(event.subject)) {
+        bySubject.set(event.subject, {
+          planned: 0,
+          completed: 0,
+          topicCompleted: new Map<string, number>(),
+          completedDates: [],
+        });
+      }
+
+      const bucket = bySubject.get(event.subject)!;
+      bucket.planned += 1;
+
+      const eventKey = getEventKey(event);
+      if (reviewStatus[eventKey]) {
+        bucket.completed += 1;
+        bucket.completedDates.push(event.reviewDate);
+        bucket.topicCompleted.set(event.topic, (bucket.topicCompleted.get(event.topic) || 0) + 1);
+      }
+    }
+
+    return Array.from(bySubject.entries())
+      .map(([subjectName, bucket]) => {
+        let topTopic = isUk ? 'Поки без повторів' : 'No completed topics yet';
+        let topTopicCompletedCount = 0;
+
+        for (const [topicName, count] of bucket.topicCompleted.entries()) {
+          if (count > topTopicCompletedCount) {
+            topTopicCompletedCount = count;
+            topTopic = topicName;
+          }
+        }
+
+        return {
+          subject: subjectName,
+          planned: bucket.planned,
+          completed: bucket.completed,
+          completionRate: bucket.planned > 0 ? Math.round((bucket.completed / bucket.planned) * 100) : 0,
+          topTopic,
+          topTopicCompletedCount,
+          streakDays: getCurrentStreakDays(bucket.completedDates),
+        };
+      })
+      .sort((a, b) => {
+        if (b.completionRate !== a.completionRate) return b.completionRate - a.completionRate;
+        return b.completed - a.completed;
+      });
+  }, [reviewEvents, reviewStatus, isUk]);
+
+  const toggleReviewed = (event: ReviewEvent) => {
+    const key = getEventKey(event);
+    setReviewStatus((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
 
   const handleAdd = () => {
     const trimmedTopic = topic.trim();
@@ -269,6 +384,18 @@ export default function ReviewPage() {
                           {getIntervalLabel(event.intervalDays, lang)}
                         </p>
                       </div>
+                      <button
+                        onClick={() => toggleReviewed(event)}
+                        className={`text-xs px-3 py-1.5 rounded-md font-semibold transition ${
+                          reviewStatus[getEventKey(event)]
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100'
+                        }`}
+                      >
+                        {reviewStatus[getEventKey(event)]
+                          ? (isUk ? 'Повторено' : 'Reviewed')
+                          : (isUk ? 'Відмітити як повторено' : 'Mark as reviewed')}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -352,12 +479,26 @@ export default function ReviewPage() {
                   {selectedDateEvents.map((event, idx) => (
                     <div
                       key={`${event.itemId}-${event.intervalDays}-${idx}`}
-                      className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2"
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 flex items-center justify-between gap-3"
                     >
-                      <p className="font-medium">{event.subject}: {event.topic}</p>
-                      <p className="text-xs text-slate-600 dark:text-slate-300">
-                        {getIntervalLabel(event.intervalDays, lang)}
-                      </p>
+                      <div>
+                        <p className="font-medium">{event.subject}: {event.topic}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                          {getIntervalLabel(event.intervalDays, lang)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => toggleReviewed(event)}
+                        className={`text-xs px-3 py-1.5 rounded-md font-semibold transition ${
+                          reviewStatus[getEventKey(event)]
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100'
+                        }`}
+                      >
+                        {reviewStatus[getEventKey(event)]
+                          ? (isUk ? 'Повторено' : 'Reviewed')
+                          : (isUk ? 'Відмітити як повторено' : 'Mark as reviewed')}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -391,6 +532,49 @@ export default function ReviewPage() {
                   >
                     {isUk ? 'Видалити' : 'Delete'}
                   </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+          <h2 className="text-xl font-semibold mb-3">
+            {isUk ? 'Статистика по предметах' : 'Subject Statistics'}
+          </h2>
+          {subjectStats.length === 0 ? (
+            <p className="text-slate-500">{isUk ? 'Поки що немає даних для статистики.' : 'No data for statistics yet.'}</p>
+          ) : (
+            <div className="space-y-3">
+              {subjectStats.map((stat) => (
+                <div
+                  key={stat.subject}
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <p className="font-semibold">{stat.subject}</p>
+                    <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                      {isUk ? 'Виконання' : 'Completion'}: {stat.completionRate}%
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
+                    <p>
+                      {isUk ? 'Заплановано повторів:' : 'Planned reviews:'} <strong>{stat.planned}</strong>
+                    </p>
+                    <p>
+                      {isUk ? 'Виконано повторів:' : 'Completed reviews:'} <strong>{stat.completed}</strong>
+                    </p>
+                    <p>
+                      {isUk ? 'Поточна серія днів:' : 'Current streak days:'} <strong>{stat.streakDays}</strong>
+                    </p>
+                    <p>
+                      {isUk ? 'Топ-тема:' : 'Top topic:'}{' '}
+                      <strong>
+                        {stat.topTopic}
+                        {stat.topTopicCompletedCount > 0 ? ` (${stat.topTopicCompletedCount})` : ''}
+                      </strong>
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -56,7 +56,7 @@ export default function DashboardPage() {
       return;
     }
     fetchStats();
-  }, [user]);
+  }, [user, router]);
 
   const fetchStats = async () => {
     try {
@@ -94,6 +94,7 @@ export default function DashboardPage() {
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const MIN_DAILY_SECONDS = 25 * 60;
+  const WEEKLY_GOAL_DAYS = 5;
 
   const getDailySeconds = () => {
     const totals = new Map<string, number>();
@@ -105,65 +106,32 @@ export default function DashboardPage() {
     return totals;
   };
 
-  const getStreak = () => {
+  const weeklyData = (() => {
     const totals = getDailySeconds();
-    const activeDays = new Set(
-      Array.from(totals.entries())
-        .filter(([, seconds]) => seconds >= MIN_DAILY_SECONDS)
-        .map(([key]) => key),
-    );
-
-    const today = new Date();
-    const todayKey = getDayKey(today);
-    let cursor = today;
-
-    if (!activeDays.has(todayKey)) {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      if (!activeDays.has(getDayKey(yesterday))) return 0;
-      cursor = yesterday;
-    }
-
-    let streak = 0;
-    for (;;) {
-      const key = getDayKey(cursor);
-      if (!activeDays.has(key)) break;
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    return streak;
-  };
-  const streakDays = getStreak();
-  const getFlameClass = () => {
-    if (streakDays >= 30) return 'text-purple-500';
-    if (streakDays >= 25) return 'text-pink-500';
-    if (streakDays >= 20) return 'text-red-500';
-    if (streakDays >= 15) return 'text-orange-500';
-    if (streakDays >= 10) return 'text-yellow-500';
-    return 'text-slate-400';
-  };
-  const last7 = (() => {
-    const totals = getDailySeconds();
-    const activeDays = new Set(
-      Array.from(totals.entries())
-        .filter(([, seconds]) => seconds >= MIN_DAILY_SECONDS)
-        .map(([key]) => key),
-    );
     const locale = lang === 'uk' ? 'uk-UA' : 'en-US';
     const weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: 'short' });
     const today = new Date();
     const isoDay = today.getDay() === 0 ? 7 : today.getDay(); // Mon=1..Sun=7
     const monday = new Date(today);
     monday.setDate(today.getDate() - (isoDay - 1));
-    const arr: { key: string; active: boolean; label: string }[] = [];
+    const arr: { key: string; active: boolean; label: string; seconds: number }[] = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const key = getDayKey(d);
-      arr.push({ key, active: activeDays.has(key), label: weekdayFmt.format(d) });
+      const seconds = totals.get(key) || 0;
+      arr.push({ key, active: seconds >= MIN_DAILY_SECONDS, label: weekdayFmt.format(d), seconds });
     }
     return arr;
   })();
+  const weeklyActiveDays = weeklyData.filter((d) => d.active).length;
+  const weeklyGoalProgress = Math.min(100, Math.round((weeklyActiveDays / WEEKLY_GOAL_DAYS) * 100));
+  const weeklyMaxSeconds = Math.max(MIN_DAILY_SECONDS, ...weeklyData.map((d) => d.seconds));
+  const todayKey = getDayKey(new Date());
+  const todaySeconds = weeklyData.find((d) => d.key === todayKey)?.seconds || 0;
+  const todayMinutes = Math.floor(todaySeconds / 60);
+  const bestDay = weeklyData.reduce((best, day) => (day.seconds > best.seconds ? day : best), weeklyData[0]);
+  const goalDaysLeft = Math.max(0, WEEKLY_GOAL_DAYS - weeklyActiveDays);
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
@@ -293,31 +261,57 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-slate-600 dark:text-slate-400 text-sm font-semibold">
-                  {t('dashboard.studyStreak')}
+                  {lang === 'uk' ? 'Тижневий ритм' : 'Weekly rhythm'}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{t('dashboard.goal7')}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Приділяйте тестуванням щонайменше 25 хвилин щодня, щоб активувати вогник.
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {lang === 'uk'
+                    ? `Ціль: ${WEEKLY_GOAL_DAYS} активних днів на тиждень (по 25+ хв)`
+                    : `Goal: ${WEEKLY_GOAL_DAYS} active days per week (25+ min each)`}
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-2xl font-bold">
-                <span className={`text-3xl ${getFlameClass()}`}>🔥</span>
-                {streakDays}
+              <div className="text-right">
+                <p className="text-2xl font-bold text-emerald-600">{weeklyActiveDays}/7</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {lang === 'uk' ? 'активних днів' : 'active days'}
+                </p>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-2">
-              {last7.map((d, idx) => (
+            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 mb-4 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${weeklyGoalProgress}%` }}
+              />
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              {weeklyData.map((d, idx) => (
                 <div
                   key={`${d.key}-${idx}`}
-                  className={`h-8 w-8 rounded-full border flex items-center justify-center text-xs font-semibold ${
-                    d.active
-                      ? 'bg-orange-100 border-orange-300 text-orange-700'
-                      : 'bg-slate-100 border-slate-200 text-slate-400'
-                  }`}
+                  className="flex flex-col items-center gap-1"
                 >
-                  {d.label}
+                  <div className="h-16 w-6 rounded-md bg-slate-100 dark:bg-slate-700 flex items-end p-0.5">
+                    <div
+                      className={`w-full rounded-sm transition-all duration-500 ${d.active ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-500'}`}
+                      style={{ height: `${Math.max(6, Math.round((d.seconds / weeklyMaxSeconds) * 100))}%` }}
+                    />
+                  </div>
+                  <span className={`text-[10px] ${d.active ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500'}`}>
+                    {d.label}
+                  </span>
                 </div>
               ))}
+            </div>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-300">
+              <p>
+                {lang === 'uk' ? 'Сьогодні:' : 'Today:'} <strong>{todayMinutes} хв</strong>
+              </p>
+              <p>
+                {lang === 'uk' ? 'Найактивніший день:' : 'Best day:'}{' '}
+                <strong>{bestDay.label} ({Math.floor(bestDay.seconds / 60)} хв)</strong>
+              </p>
+              <p>
+                {lang === 'uk' ? 'До цілі лишилось:' : 'Days left to goal:'}{' '}
+                <strong>{goalDaysLeft}</strong>
+              </p>
             </div>
           </div>
 
