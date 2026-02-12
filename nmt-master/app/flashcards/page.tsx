@@ -477,19 +477,19 @@ export default function FlashcardsPage() {
             )}
 
             {mode === 'study' && (
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+              <div className="rounded-2xl border border-indigo-300/30 dark:border-indigo-700/30 bg-gradient-to-b from-[#141251] via-[#1b1764] to-[#120f45] p-4 sm:p-6 shadow-2xl">
                 {!selectedSet ? (
-                  <p className="text-slate-500">{isUk ? 'Оберіть сет у бібліотеці.' : 'Select a set in library.'}</p>
+                  <p className="text-indigo-100/80">{isUk ? 'Оберіть сет у бібліотеці.' : 'Select a set in library.'}</p>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                    <div className="flex items-center justify-between gap-3 flex-wrap mb-4 sm:mb-6">
                       <div>
-                        <h2 className="text-xl font-semibold">{selectedSet.title}</h2>
-                        <p className="text-sm text-slate-500">
+                        <h2 className="text-xl font-semibold text-white">{selectedSet.title}</h2>
+                        <p className="text-sm text-indigo-100/80">
                           {selectedSet.cards.length} {isUk ? 'карток' : 'cards'} • {isUk ? 'Вивчено' : 'Learned'} {learnedCount}/{selectedSet.cards.length} • {isUk ? 'Складних' : 'Difficult'} {starredCount}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <select
                           value={studyFilter}
                           onChange={(e) => {
@@ -497,7 +497,7 @@ export default function FlashcardsPage() {
                             setCurrentIndex(0);
                             setShowBack(false);
                           }}
-                          className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-2 text-sm"
+                          className="rounded-lg border border-indigo-300/40 bg-[#201b73] text-white px-2 py-2 text-sm"
                         >
                           <option value="all">{isUk ? 'Усі' : 'All'}</option>
                           <option value="starred">{isUk ? 'Лише складні' : 'Only difficult'}</option>
@@ -510,56 +510,82 @@ export default function FlashcardsPage() {
                             setCurrentIndex(0);
                             setShowBack(false);
                           }}
-                          className={`px-3 py-2 text-sm rounded ${shuffleEnabled ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'border border-slate-300 dark:border-slate-600'}`}
+                          className={`px-3 py-2 text-sm rounded-lg border ${shuffleEnabled ? 'bg-cyan-400 text-slate-900 border-cyan-300 font-semibold' : 'bg-[#201b73] text-white border-indigo-300/40'}`}
                         >
                           {isUk ? 'Shuffle' : 'Shuffle'}
                         </button>
                       </div>
                     </div>
 
-                    <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden mb-4">
-                      <div className="h-full bg-lime-500 transition-all" style={{ width: `${progressRate}%` }} />
+                    <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden mb-5">
+                      <div className="h-full bg-cyan-400 transition-all" style={{ width: `${progressRate}%` }} />
                     </div>
 
                     {deck.length === 0 ? (
-                      <p className="text-slate-500">{isUk ? 'Немає карток для цього фільтра.' : 'No cards for this filter.'}</p>
+                      <p className="text-indigo-100/80">{isUk ? 'Немає карток для цього фільтра.' : 'No cards for this filter.'}</p>
                     ) : (
                       <>
-                        <button
-                          onClick={() => setShowBack((prev) => !prev)}
-                          className="w-full min-h-[260px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 p-6 text-left"
-                        >
-                          <p className="text-xs uppercase tracking-wide text-slate-500 mb-3">{showBack ? (isUk ? 'Визначення' : 'Definition') : (isUk ? 'Термін' : 'Term')}</p>
-                          <p className="text-2xl font-bold leading-tight">
-                            {showBack ? currentCard?.definition : currentCard?.term}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-4">{isUk ? 'Клікни, щоб перевернути картку' : 'Click to flip the card'}</p>
-                        </button>
+                        <div className="mx-auto max-w-4xl [perspective:2200px]">
+                          <button
+                            onClick={() => setShowBack((prev) => !prev)}
+                            className="w-full h-[280px] sm:h-[360px] md:h-[420px] rounded-2xl bg-transparent"
+                          >
+                            <div
+                              className={`relative h-full w-full rounded-2xl [transform-style:preserve-3d] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${
+                                showBack ? '[transform:rotateX(180deg)]' : ''
+                              }`}
+                            >
+                              <div className="absolute inset-0 rounded-2xl border border-white/15 bg-gradient-to-br from-[#2a2588] to-[#201b73] px-6 py-6 sm:px-10 sm:py-8 text-left [backface-visibility:hidden] shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                                <div className="flex items-center justify-between text-indigo-100/70 text-xs sm:text-sm">
+                                  <span>{isUk ? 'Термін' : 'Term'}</span>
+                                  <span>{safeCurrentIndex + 1}/{deck.length}</span>
+                                </div>
+                                <div className="h-full flex items-center justify-center">
+                                  <p className="text-white text-2xl sm:text-4xl font-semibold text-center leading-tight break-words">
+                                    {currentCard?.term}
+                                  </p>
+                                </div>
+                              </div>
 
-                        <div className="mt-4 flex items-center justify-between gap-2 flex-wrap">
+                              <div className="absolute inset-0 rounded-2xl border border-cyan-300/35 bg-gradient-to-br from-[#1188c8] to-[#0d5ea6] px-6 py-6 sm:px-10 sm:py-8 text-left [backface-visibility:hidden] [transform:rotateX(180deg)] shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                                <div className="flex items-center justify-between text-cyan-100/85 text-xs sm:text-sm">
+                                  <span>{isUk ? 'Визначення' : 'Definition'}</span>
+                                  <span>{currentCard?.starred ? (isUk ? 'Складна' : 'Difficult') : ''}</span>
+                                </div>
+                                <div className="h-full flex items-center justify-center">
+                                  <p className="text-white text-xl sm:text-3xl font-semibold text-center leading-tight break-words">
+                                    {currentCard?.definition}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between gap-2 flex-wrap text-indigo-100/90">
                           <div className="flex items-center gap-2">
-                            <button onClick={goPrevCard} className="px-3 py-2 text-sm rounded border border-slate-300 dark:border-slate-600">←</button>
-                            <span className="text-sm text-slate-500">{safeCurrentIndex + 1}/{deck.length}</span>
-                            <button onClick={goNextCard} className="px-3 py-2 text-sm rounded border border-slate-300 dark:border-slate-600">→</button>
+                            <button onClick={goPrevCard} className="px-3 py-2 text-sm rounded-lg border border-indigo-300/40 bg-[#201b73] hover:bg-[#2a2588]">←</button>
+                            <span className="text-sm">{safeCurrentIndex + 1}/{deck.length}</span>
+                            <button onClick={goNextCard} className="px-3 py-2 text-sm rounded-lg border border-indigo-300/40 bg-[#201b73] hover:bg-[#2a2588]">→</button>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => currentCard && updateCardFlags(currentCard.id, { starred: !currentCard.starred })}
-                              className={`px-3 py-2 text-sm rounded ${currentCard?.starred ? 'bg-amber-400 text-slate-900' : 'border border-slate-300 dark:border-slate-600'}`}
+                              className={`px-3 py-2 text-sm rounded-lg border ${currentCard?.starred ? 'bg-amber-300 text-slate-900 border-amber-200 font-semibold' : 'border-indigo-300/40 bg-[#201b73] hover:bg-[#2a2588] text-white'}`}
                             >
                               {isUk ? 'Складна' : 'Difficult'}
                             </button>
                             <button
                               onClick={() => currentCard && updateCardFlags(currentCard.id, { learned: false, starred: true })}
-                              className="px-3 py-2 text-sm rounded bg-red-600 hover:bg-red-700 text-white"
+                              className="px-3 py-2 text-sm rounded-lg bg-[#2f286f] hover:bg-[#3f3690] text-white border border-indigo-300/30"
                             >
-                              {isUk ? 'Не знаю (1)' : "Don't know (1)"}
+                              {isUk ? 'Не знаю' : "Still learning"}
                             </button>
                             <button
                               onClick={() => currentCard && updateCardFlags(currentCard.id, { learned: true })}
-                              className="px-3 py-2 text-sm rounded bg-lime-600 hover:bg-lime-700 text-white"
+                              className="px-3 py-2 text-sm rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-900 font-semibold"
                             >
-                              {isUk ? 'Знаю (2)' : 'Know (2)'}
+                              {isUk ? 'Знаю' : 'Know it'}
                             </button>
                           </div>
                         </div>
@@ -567,12 +593,12 @@ export default function FlashcardsPage() {
                         <div className="mt-4 flex items-center justify-between gap-2 flex-wrap">
                           <button
                             onClick={handleResetProgress}
-                            className="text-xs px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600"
+                            className="text-xs px-3 py-1.5 rounded-lg border border-indigo-300/40 bg-[#201b73] hover:bg-[#2a2588] text-white"
                           >
                             {isUk ? 'Скинути прогрес сету' : 'Reset set progress'}
                           </button>
-                          <p className="text-xs text-slate-500">
-                            {isUk ? 'Гарячі клавіші:' : 'Hotkeys:'} `Space`, `←/→`, `1`, `2`
+                          <p className="text-xs text-indigo-100/70">
+                            {isUk ? 'Натисни картку або Space для Flip' : 'Tap card or Space to flip'} • `←/→`
                           </p>
                         </div>
                       </>
