@@ -202,9 +202,9 @@ export default function FlashcardsPage() {
     setSets((prev) => [nextSet, ...prev]);
     setSelectedSetId(nextSet.id);
     setMode('edit');
-    setTitle('');
-    setDescription('');
-    setSubject('');
+    setSetTitle('');
+    setSetDescription('');
+    setSetSubject('');
     setDraftCards([createDraftCard(), createDraftCard(), createDraftCard(), createDraftCard()]);
   };
 
