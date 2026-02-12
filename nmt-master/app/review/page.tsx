@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
@@ -53,8 +53,6 @@ type SubjectStats = {
   streakDays: number;
 };
 
-const STORAGE_KEY = 'nmt-review-plan-v1';
-const STATUS_STORAGE_KEY = 'nmt-review-status-v1';
 const REVIEW_INTERVALS = [1, 3, 7, 14, 28] as const;
 
 const SUBJECTS = [
@@ -126,17 +124,7 @@ export default function ReviewPage() {
   const { lang } = useLanguageStore();
   const isUk = lang === 'uk';
 
-  const [items, setItems] = useState<StudyItem[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as StudyItem[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  const [items, setItems] = useState<StudyItem[]>([]);
   const [subject, setSubject] = useState(SUBJECTS[0]);
   const [topic, setTopic] = useState('');
   const [studiedDate, setStudiedDate] = useState(toYmd(new Date()));
@@ -145,17 +133,8 @@ export default function ReviewPage() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [reviewStatus, setReviewStatus] = useState<ReviewStatusMap>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const raw = localStorage.getItem(STATUS_STORAGE_KEY);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw) as ReviewStatusMap;
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch {
-      return {};
-    }
-  });
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatusMap>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -163,13 +142,33 @@ export default function ReviewPage() {
     }
   }, [router, user]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+  const loadReviewData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/review', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setItems(Array.isArray(data.items) ? data.items : []);
+      const statusMap: ReviewStatusMap = {};
+      if (Array.isArray(data.completedKeys)) {
+        for (const key of data.completedKeys) {
+          if (typeof key === 'string') {
+            statusMap[key] = true;
+          }
+        }
+      }
+      setReviewStatus(statusMap);
+    } catch (error) {
+      console.error('Load review data error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(STATUS_STORAGE_KEY, JSON.stringify(reviewStatus));
-  }, [reviewStatus]);
+    if (!user) return;
+    loadReviewData().catch(() => {});
+  }, [loadReviewData, user]);
 
   const reviewEvents = useMemo<ReviewEvent[]>(() => {
     return items.flatMap((item) =>
@@ -391,32 +390,87 @@ export default function ReviewPage() {
     return chartData;
   }, [reviewEvents, reviewStatus, today]);
 
-  const toggleReviewed = (event: ReviewEvent) => {
+  const toggleReviewed = async (event: ReviewEvent) => {
     const key = getEventKey(event);
+    const nextCompleted = !reviewStatus[key];
     setReviewStatus((prev) => ({
       ...prev,
-      [key]: !prev[key],
+      [key]: nextCompleted,
     }));
+    try {
+      const res = await fetch('/api/review/completions/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewPlanItemId: event.itemId,
+          reviewDate: event.reviewDate,
+          intervalDays: event.intervalDays,
+          completed: nextCompleted,
+        }),
+      });
+      if (!res.ok) {
+        setReviewStatus((prev) => ({
+          ...prev,
+          [key]: !nextCompleted,
+        }));
+      }
+    } catch {
+      setReviewStatus((prev) => ({
+        ...prev,
+        [key]: !nextCompleted,
+      }));
+    }
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const trimmedTopic = topic.trim();
     if (!trimmedTopic) return;
 
-    const next: StudyItem = {
-      id: crypto.randomUUID(),
-      subject,
-      topic: trimmedTopic,
-      studiedDate,
-      createdAt: new Date().toISOString(),
-    };
-    setItems((prev) => [next, ...prev]);
-    setTopic('');
-    setSelectedDate(addDaysYmd(studiedDate, 1));
+    try {
+      const res = await fetch('/api/review/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject,
+          topic: trimmedTopic,
+          studiedDate,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.item) {
+        setItems((prev) => [data.item, ...prev]);
+      }
+      setTopic('');
+      setSelectedDate(addDaysYmd(studiedDate, 1));
+    } catch (error) {
+      console.error('Add review item error:', error);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const prevItems = items;
+    const prevStatus = reviewStatus;
     setItems((prev) => prev.filter((item) => item.id !== id));
+    setReviewStatus((prev) => {
+      const next: ReviewStatusMap = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (!key.startsWith(`${id}__`)) {
+          next[key] = value;
+        }
+      }
+      return next;
+    });
+    try {
+      const res = await fetch(`/api/review/items/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        setItems(prevItems);
+        setReviewStatus(prevStatus);
+      }
+    } catch {
+      setItems(prevItems);
+      setReviewStatus(prevStatus);
+    }
   };
 
   const monthYearLabel = calendarCursor.toLocaleDateString(isUk ? 'uk-UA' : 'en-US', {
@@ -465,6 +519,9 @@ export default function ReviewPage() {
               ? 'Додавай тему, а система автоматично поставить повторення на 1, 3, 7, 14 і 28 день.'
               : 'Add a topic and get automatic reviews for day 1, 3, 7, 14, and 28.'}
           </p>
+          {loading ? (
+            <p className="text-sm text-slate-500 mt-1">{isUk ? 'Синхронізація даних...' : 'Syncing data...'}</p>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth';
@@ -14,8 +14,6 @@ type DailyPlanItem = {
   done: boolean;
   createdAt: string;
 };
-
-const PLANS_STORAGE_KEY = 'nmt-daily-plans-v1';
 
 const toYmd = (date: Date): string => {
   const y = date.getFullYear();
@@ -52,17 +50,8 @@ export default function PlansPage() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
-  const [items, setItems] = useState<DailyPlanItem[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const raw = localStorage.getItem(PLANS_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as DailyPlanItem[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  const [items, setItems] = useState<DailyPlanItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -70,9 +59,24 @@ export default function PlansPage() {
     }
   }, [router, user]);
 
+  const loadPlans = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/plans', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setItems(Array.isArray(data.tasks) ? data.tasks : []);
+    } catch (error) {
+      console.error('Load plans error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    localStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+    if (!user) return;
+    loadPlans().catch(() => {});
+  }, [loadPlans, user]);
 
   const selectedItems = useMemo(
     () => items.filter((item) => item.date === selectedDate),
@@ -128,51 +132,83 @@ export default function PlansPage() {
     return streak;
   }, [items, today]);
 
-  const addPlan = () => {
+  const addPlan = async () => {
     const trimmed = title.trim();
     if (!trimmed) return;
 
-    const next: DailyPlanItem = {
-      id: crypto.randomUUID(),
-      title: trimmed,
-      note: note.trim(),
-      date: selectedDate,
-      done: false,
-      createdAt: new Date().toISOString(),
-    };
-    setItems((prev) => [next, ...prev]);
-    setTitle('');
-    setNote('');
+    try {
+      const res = await fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: selectedDate,
+          title: trimmed,
+          note: note.trim(),
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.task) {
+        setItems((prev) => [data.task, ...prev]);
+      }
+      setTitle('');
+      setNote('');
+    } catch (error) {
+      console.error('Add plan error:', error);
+    }
   };
 
-  const toggleDone = (id: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, done: !item.done }
-          : item,
-      ),
-    );
+  const toggleDone = async (id: string) => {
+    const target = items.find((item) => item.id === id);
+    if (!target) return;
+    const nextDone = !target.done;
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, done: nextDone } : item)));
+    try {
+      const res = await fetch(`/api/plans/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ done: nextDone }),
+      });
+      if (!res.ok) {
+        setItems((prev) => prev.map((item) => (item.id === id ? { ...item, done: target.done } : item)));
+      }
+    } catch {
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, done: target.done } : item)));
+    }
   };
 
-  const removePlan = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  const removePlan = async (id: string) => {
+    const prev = items;
+    setItems((current) => current.filter((item) => item.id !== id));
+    try {
+      const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        setItems(prev);
+      }
+    } catch {
+      setItems(prev);
+    }
   };
 
-  const copyUndoneFromYesterday = () => {
+  const copyUndoneFromYesterday = async () => {
     const yesterday = addDaysYmd(selectedDate, -1);
-    const source = items.filter((item) => item.date === yesterday && !item.done);
-    if (source.length === 0) return;
-
-    const copies = source.map((item) => ({
-      id: crypto.randomUUID(),
-      title: item.title,
-      note: item.note,
-      date: selectedDate,
-      done: false,
-      createdAt: new Date().toISOString(),
-    }));
-    setItems((prev) => [...copies, ...prev]);
+    try {
+      const res = await fetch('/api/plans/copy-undone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromDate: yesterday,
+          toDate: selectedDate,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.tasks) && data.tasks.length > 0) {
+        setItems((prev) => [...data.tasks, ...prev]);
+      }
+    } catch (error) {
+      console.error('Copy undone error:', error);
+    }
   };
 
   return (
@@ -292,7 +328,9 @@ export default function PlansPage() {
               <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 mb-4 overflow-hidden">
                 <div className="h-full bg-lime-500 transition-all" style={{ width: `${selectedRate}%` }} />
               </div>
-              {selectedItems.length === 0 ? (
+              {loading ? (
+                <p className="text-slate-500">{isUk ? 'Завантаження...' : 'Loading...'}</p>
+              ) : selectedItems.length === 0 ? (
                 <p className="text-slate-500">{isUk ? 'На цей день задач ще немає.' : 'No tasks for this date yet.'}</p>
               ) : (
                 <div className="space-y-2">

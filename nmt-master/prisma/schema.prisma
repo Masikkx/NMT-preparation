@@ -26,8 +26,59 @@ model User {
   testAttempts  TestAttempt[]
   results       Result[]
   achievements  Achievement[]
+  dailyPlanTasks DailyPlanTask[]
+  reviewPlanItems ReviewPlanItem[]
+  reviewCompletions ReviewCompletion[]
 
   @@map("users")
+}
+
+model DailyPlanTask {
+  id        String   @id @default(cuid())
+  userId    String
+  date      String   // YYYY-MM-DD
+  title     String
+  note      String?
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("daily_plan_tasks")
+}
+
+model ReviewPlanItem {
+  id         String   @id @default(cuid())
+  userId     String
+  subject    String
+  topic      String
+  studiedDate String  // YYYY-MM-DD
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions ReviewCompletion[]
+
+  @@index([userId, studiedDate])
+  @@map("review_plan_items")
+}
+
+model ReviewCompletion {
+  id            String   @id @default(cuid())
+  userId        String
+  reviewPlanItemId String
+  reviewDate    String   // YYYY-MM-DD
+  intervalDays  Int
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewPlanItem ReviewPlanItem @relation(fields: [reviewPlanItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewPlanItemId, reviewDate, intervalDays])
+  @@index([userId, reviewDate])
+  @@map("review_completions")
 }
 
 // Subject model (Ukrainian Language, Mathematics, etc.)
