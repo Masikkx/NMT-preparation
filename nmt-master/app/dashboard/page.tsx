@@ -39,31 +39,6 @@ interface Achievement {
   unlockedAt: string;
 }
 
-type DailyPlanItem = {
-  id: string;
-  title: string;
-  note: string;
-  date: string; // YYYY-MM-DD
-  done: boolean;
-  createdAt: string;
-};
-
-const PLANS_STORAGE_KEY = 'nmt-daily-plans-v1';
-
-const toYmd = (date: Date): string =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-const parseYmdLocal = (value: string): Date => {
-  const [y, m, d] = value.split('-').map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-};
-
-const addDaysYmd = (value: string, days: number): string => {
-  const date = parseYmdLocal(value);
-  date.setDate(date.getDate() + days);
-  return toYmd(date);
-};
-
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -73,7 +48,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [results, setResults] = useState<Result[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [dailyPlans, setDailyPlans] = useState<DailyPlanItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,40 +57,6 @@ export default function DashboardPage() {
     }
     fetchStats();
   }, [user, router]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const loadPlans = () => {
-      try {
-        const raw = localStorage.getItem(PLANS_STORAGE_KEY);
-        if (!raw) {
-          setDailyPlans([]);
-          return;
-        }
-        const parsed = JSON.parse(raw) as DailyPlanItem[];
-        setDailyPlans(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        setDailyPlans([]);
-      }
-    };
-
-    loadPlans();
-
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === PLANS_STORAGE_KEY) {
-        loadPlans();
-      }
-    };
-
-    window.addEventListener('storage', onStorage);
-    document.addEventListener('visibilitychange', loadPlans);
-
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      document.removeEventListener('visibilitychange', loadPlans);
-    };
-  }, []);
 
   const fetchStats = async () => {
     try {
@@ -192,64 +132,6 @@ export default function DashboardPage() {
   const todayMinutes = Math.floor(todaySeconds / 60);
   const bestDay = weeklyData.reduce((best, day) => (day.seconds > best.seconds ? day : best), weeklyData[0]);
   const goalDaysLeft = Math.max(0, WEEKLY_GOAL_DAYS - weeklyActiveDays);
-
-  const dailyPlanStats = (() => {
-    const todayPlans = dailyPlans.filter((plan) => plan.date === todayKey);
-    const todayDone = todayPlans.filter((plan) => plan.done).length;
-    const todayRate = todayPlans.length > 0 ? Math.round((todayDone / todayPlans.length) * 100) : 0;
-
-    const weekStart = (() => {
-      const now = new Date();
-      const mondayIndex = (now.getDay() + 6) % 7;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - mondayIndex);
-      return toYmd(monday);
-    })();
-
-    const weeklyDays = Array.from({ length: 7 }).map((_, idx) => {
-      const date = addDaysYmd(weekStart, idx);
-      const plans = dailyPlans.filter((plan) => plan.date === date);
-      const done = plans.filter((plan) => plan.done).length;
-      return {
-        date,
-        total: plans.length,
-        done,
-        rate: plans.length > 0 ? Math.round((done / plans.length) * 100) : 0,
-      };
-    });
-
-    const weekTotal = weeklyDays.reduce((acc, day) => acc + day.total, 0);
-    const weekDone = weeklyDays.reduce((acc, day) => acc + day.done, 0);
-    const weekRate = weekTotal > 0 ? Math.round((weekDone / weekTotal) * 100) : 0;
-    const activeDays = weeklyDays.filter((day) => day.total > 0).length;
-
-    const byDate = new Map<string, { total: number; done: number }>();
-    dailyPlans.forEach((plan) => {
-      if (!byDate.has(plan.date)) byDate.set(plan.date, { total: 0, done: 0 });
-      const bucket = byDate.get(plan.date)!;
-      bucket.total += 1;
-      if (plan.done) bucket.done += 1;
-    });
-
-    let streak = 0;
-    let cursor = todayKey;
-    while (true) {
-      const day = byDate.get(cursor);
-      if (!day || day.total === 0 || day.done < day.total) break;
-      streak += 1;
-      cursor = addDaysYmd(cursor, -1);
-    }
-
-    return {
-      todayTotal: todayPlans.length,
-      todayDone,
-      todayRate,
-      weekRate,
-      activeDays,
-      streak,
-      weeklyDays,
-    };
-  })();
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
@@ -433,74 +315,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-10">
-          <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
-            <div>
-              <h2 className="text-2xl font-bold">{lang === 'uk' ? 'Плани дня' : 'Daily plans'}</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                {lang === 'uk'
-                  ? 'Це метрики з вкладки "Плани дня".'
-                  : 'These metrics come from the Daily plans tab.'}
-              </p>
-            </div>
-            <Link
-              href="/plans"
-              className="px-3 py-2 rounded-lg bg-lime-600 hover:bg-lime-700 text-white text-sm font-semibold"
-            >
-              {lang === 'uk' ? 'Відкрити плани дня' : 'Open daily plans'}
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900">
-              <p className="text-xs text-slate-500 uppercase tracking-wide">{lang === 'uk' ? 'Сьогодні' : 'Today'}</p>
-              <p className="text-2xl font-bold">{dailyPlanStats.todayDone}/{dailyPlanStats.todayTotal}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900">
-              <p className="text-xs text-slate-500 uppercase tracking-wide">{lang === 'uk' ? 'Рейт сьогодні' : 'Today rate'}</p>
-              <p className="text-2xl font-bold">{dailyPlanStats.todayRate}%</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900">
-              <p className="text-xs text-slate-500 uppercase tracking-wide">{lang === 'uk' ? 'Тижневий рейт' : 'Weekly rate'}</p>
-              <p className="text-2xl font-bold">{dailyPlanStats.weekRate}%</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900">
-              <p className="text-xs text-slate-500 uppercase tracking-wide">{lang === 'uk' ? 'Серія ідеальних днів' : 'Perfect-day streak'}</p>
-              <p className="text-2xl font-bold">{dailyPlanStats.streak}</p>
-            </div>
-          </div>
-
-          <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 mb-4 overflow-hidden">
-            <div
-              className="h-full bg-lime-500 transition-all duration-500"
-              style={{ width: `${dailyPlanStats.weekRate}%` }}
-            />
-          </div>
-
-          <div className="grid grid-cols-7 gap-2">
-            {dailyPlanStats.weeklyDays.map((day) => (
-              <div key={day.date} className="rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-center bg-white dark:bg-slate-900">
-                <p className="text-[10px] text-slate-500 mb-1">
-                  {new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-US', { weekday: 'short' }).format(parseYmdLocal(day.date))}
-                </p>
-                <div className="mx-auto h-14 w-6 rounded bg-slate-100 dark:bg-slate-700 p-0.5 flex items-end">
-                  <div
-                    className={`w-full rounded-sm ${day.rate >= 80 ? 'bg-lime-500' : day.rate >= 40 ? 'bg-amber-400' : 'bg-slate-400'}`}
-                    style={{ height: `${Math.max(8, day.rate)}%` }}
-                  />
-                </div>
-                <p className="text-[11px] mt-1 font-semibold">{day.done}/{day.total}</p>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
-            {lang === 'uk'
-              ? `Активних днів із задачами цього тижня: ${dailyPlanStats.activeDays}/7`
-              : `Active days with tasks this week: ${dailyPlanStats.activeDays}/7`}
-          </p>
         </div>
 
         {/* Recent Results */}
