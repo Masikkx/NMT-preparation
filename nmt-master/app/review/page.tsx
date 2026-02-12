@@ -4,6 +4,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  Pie,
+  PieChart,
+  PolarAngleAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 type StudyItem = {
   id: string;
@@ -63,6 +83,13 @@ const parseYmdLocal = (value: string): Date => {
 const addDaysYmd = (value: string, days: number): string => {
   const date = parseYmdLocal(value);
   date.setDate(date.getDate() + days);
+  return toYmd(date);
+};
+
+const getWeekStartYmd = (value: string): string => {
+  const date = parseYmdLocal(value);
+  const mondayIndex = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - mondayIndex);
   return toYmd(date);
 };
 
@@ -231,6 +258,138 @@ export default function ReviewPage() {
         return b.completed - a.completed;
       });
   }, [reviewEvents, reviewStatus, isUk]);
+
+  const dashboardMetrics = useMemo(() => {
+    const completed = reviewEvents.reduce((acc, event) => (
+      reviewStatus[getEventKey(event)] ? acc + 1 : acc
+    ), 0);
+    const planned = reviewEvents.length;
+    const completionRate = planned > 0 ? Math.round((completed / planned) * 100) : 0;
+    const longestStreak = subjectStats.reduce((max, stat) => Math.max(max, stat.streakDays), 0);
+    const activeSubjects = new Set(items.map((item) => item.subject)).size;
+
+    return {
+      planned,
+      completed,
+      pending: Math.max(0, planned - completed),
+      completionRate,
+      longestStreak,
+      activeSubjects,
+    };
+  }, [items, reviewEvents, reviewStatus, subjectStats]);
+
+  const completionPieData = useMemo(
+    () => [
+      { name: isUk ? 'Виконано' : 'Completed', value: dashboardMetrics.completed, color: '#65a30d' },
+      { name: isUk ? 'Залишилось' : 'Pending', value: dashboardMetrics.pending, color: '#cbd5e1' },
+    ],
+    [dashboardMetrics.completed, dashboardMetrics.pending, isUk],
+  );
+
+  const subjectChartData = useMemo(
+    () =>
+      subjectStats.slice(0, 8).map((stat) => ({
+        subject: stat.subject.length > 14 ? `${stat.subject.slice(0, 14)}...` : stat.subject,
+        completionRate: stat.completionRate,
+        planned: stat.planned,
+        completed: stat.completed,
+      })),
+    [subjectStats],
+  );
+
+  const dailyTrendData = useMemo(() => {
+    const days = 30;
+    const output: Array<{ day: string; planned: number; completed: number; rate: number }> = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = addDaysYmd(today, -i);
+      const dayEvents = eventsByDate.get(date) || [];
+      const planned = dayEvents.length;
+      const completed = dayEvents.reduce((acc, event) => (
+        reviewStatus[getEventKey(event)] ? acc + 1 : acc
+      ), 0);
+
+      output.push({
+        day: date.slice(5),
+        planned,
+        completed,
+        rate: planned > 0 ? Math.round((completed / planned) * 100) : 0,
+      });
+    }
+
+    return output;
+  }, [eventsByDate, reviewStatus, today]);
+
+  const weekdayPerformance = useMemo(() => {
+    const labels = isUk ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const buckets = labels.map((label) => ({ day: label, planned: 0, completed: 0, rate: 0 }));
+
+    reviewEvents.forEach((event) => {
+      const date = parseYmdLocal(event.reviewDate);
+      const idx = (date.getDay() + 6) % 7;
+      buckets[idx].planned += 1;
+      if (reviewStatus[getEventKey(event)]) {
+        buckets[idx].completed += 1;
+      }
+    });
+
+    return buckets.map((bucket) => ({
+      ...bucket,
+      rate: bucket.planned > 0 ? Math.round((bucket.completed / bucket.planned) * 100) : 0,
+    }));
+  }, [isUk, reviewEvents, reviewStatus]);
+
+  const intervalMastery = useMemo(() => {
+    const buckets = new Map<number, { planned: number; completed: number }>();
+    REVIEW_INTERVALS.forEach((interval) => buckets.set(interval, { planned: 0, completed: 0 }));
+
+    reviewEvents.forEach((event) => {
+      const bucket = buckets.get(event.intervalDays);
+      if (!bucket) return;
+      bucket.planned += 1;
+      if (reviewStatus[getEventKey(event)]) bucket.completed += 1;
+    });
+
+    return REVIEW_INTERVALS.map((interval) => {
+      const bucket = buckets.get(interval)!;
+      return {
+        interval: `${interval}d`,
+        score: bucket.planned > 0 ? Math.round((bucket.completed / bucket.planned) * 100) : 0,
+      };
+    });
+  }, [reviewEvents, reviewStatus]);
+
+  const weeklyMomentum = useMemo(() => {
+    const weeks = 8;
+    const now = parseYmdLocal(today);
+    const mondayOffset = (now.getDay() + 6) % 7;
+    now.setDate(now.getDate() - mondayOffset);
+    const currentWeekStart = toYmd(now);
+
+    const aggregate = new Map<string, { planned: number; completed: number }>();
+    reviewEvents.forEach((event) => {
+      const weekStart = getWeekStartYmd(event.reviewDate);
+      if (!aggregate.has(weekStart)) {
+        aggregate.set(weekStart, { planned: 0, completed: 0 });
+      }
+      const bucket = aggregate.get(weekStart)!;
+      bucket.planned += 1;
+      if (reviewStatus[getEventKey(event)]) bucket.completed += 1;
+    });
+
+    const chartData: Array<{ week: string; planned: number; completed: number; rate: number }> = [];
+    for (let i = weeks - 1; i >= 0; i--) {
+      const weekStart = addDaysYmd(currentWeekStart, -i * 7);
+      const bucket = aggregate.get(weekStart) || { planned: 0, completed: 0 };
+      chartData.push({
+        week: weekStart.slice(5),
+        planned: bucket.planned,
+        completed: bucket.completed,
+        rate: bucket.planned > 0 ? Math.round((bucket.completed / bucket.planned) * 100) : 0,
+      });
+    }
+    return chartData;
+  }, [reviewEvents, reviewStatus, today]);
 
   const toggleReviewed = (event: ReviewEvent) => {
     const key = getEventKey(event);
@@ -503,6 +662,155 @@ export default function ReviewPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-lime-200/70 dark:border-lime-900/50 bg-gradient-to-br from-lime-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                {isUk ? 'Momentum Dashboard' : 'Momentum Dashboard'}
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                {isUk
+                  ? 'Твоя динаміка повторень: виконання, стабільність і темп за останні тижні.'
+                  : 'Your review momentum: completion, consistency, and pace over recent weeks.'}
+              </p>
+            </div>
+            <div className="text-sm text-slate-700 dark:text-slate-300 rounded-lg bg-white/80 dark:bg-slate-800/60 px-3 py-2 border border-slate-200 dark:border-slate-700">
+              {isUk ? 'Оновлено:' : 'Updated:'} <strong>{today}</strong>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Загальний прогрес' : 'Overall progress'}</p>
+              <p className="text-2xl font-bold text-lime-700 dark:text-lime-400">{dashboardMetrics.completionRate}%</p>
+            </div>
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Виконано повторів' : 'Completed reviews'}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.completed}</p>
+            </div>
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Макс. серія' : 'Longest streak'}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.longestStreak}</p>
+            </div>
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Активні предмети' : 'Active subjects'}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.activeSubjects}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <h3 className="font-semibold mb-3">{isUk ? 'Виконано vs залишилось' : 'Completed vs pending'}</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={completionPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={65}
+                      outerRadius={95}
+                      strokeWidth={0}
+                      paddingAngle={3}
+                    >
+                      {completionPieData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend verticalAlign="bottom" />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <h3 className="font-semibold mb-3">{isUk ? 'Ефективність по днях тижня' : 'Weekday efficiency'}</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weekdayPerformance}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="completed" name={isUk ? 'Виконано' : 'Completed'} fill="#65a30d" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="planned" name={isUk ? 'Заплановано' : 'Planned'} fill="#94a3b8" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <h3 className="font-semibold mb-3">{isUk ? 'Тренд за 30 днів' : '30-day trend'}</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={dailyTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" minTickGap={24} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="planned" name={isUk ? 'Заплановано' : 'Planned'} fill="#cbd5e1" />
+                    <Line type="monotone" dataKey="completed" name={isUk ? 'Виконано' : 'Completed'} stroke="#16a34a" strokeWidth={2} dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <h3 className="font-semibold mb-3">{isUk ? 'Майстерність інтервалів' : 'Interval mastery'}</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={intervalMastery}>
+                    <PolarAngleAxis dataKey="interval" />
+                    <Tooltip />
+                    <Radar dataKey="score" fill="#84cc16" fillOpacity={0.45} stroke="#65a30d" strokeWidth={2} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <h3 className="font-semibold mb-3">{isUk ? 'Прогрес по предметах' : 'Subject progress'}</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={subjectChartData} layout="vertical" margin={{ left: 14, right: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" domain={[0, 100]} />
+                    <YAxis type="category" dataKey="subject" width={130} />
+                    <Tooltip />
+                    <Bar dataKey="completionRate" name={isUk ? 'Виконання %' : 'Completion %'} fill="#22c55e" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <h3 className="font-semibold mb-3">{isUk ? 'Тижневий momentum (8 тижнів)' : 'Weekly momentum (8 weeks)'}</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={weeklyMomentum}>
+                    <defs>
+                      <linearGradient id="momentumFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#65a30d" stopOpacity={0.45} />
+                        <stop offset="95%" stopColor="#65a30d" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="completed" name={isUk ? 'Виконано' : 'Completed'} stroke="#65a30d" fill="url(#momentumFill)" />
+                    <Line type="monotone" dataKey="rate" name={isUk ? 'Рейт %' : 'Rate %'} stroke="#0f172a" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </div>
