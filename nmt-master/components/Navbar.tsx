@@ -59,6 +59,9 @@ export function Navbar() {
                 <Link href="/plans" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition">
                   {lang === 'uk' ? 'Плани дня' : 'Daily plans'}
                 </Link>
+                <Link href="/flashcards" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition">
+                  {lang === 'uk' ? 'Флешкарти' : 'Flashcards'}
+                </Link>
                 {user.role === 'admin' && (
                   <Link href="/admin" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition">
                     {t('nav.admin')}
@@ -154,6 +157,9 @@ export function Navbar() {
                 </Link>
                 <Link href="/plans" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
                   {lang === 'uk' ? 'Плани дня' : 'Daily plans'}
+                </Link>
+                <Link href="/flashcards" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
+                  {lang === 'uk' ? 'Флешкарти' : 'Flashcards'}
                 </Link>
                 <Link href="/profile" className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
                   {t('nav.profile')}
