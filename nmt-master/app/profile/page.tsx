@@ -37,6 +37,10 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     const res = await fetch('/api/users/me');
+    if (res.status === 401) {
+      router.push('/login');
+      return;
+    }
     if (res.ok) {
       const data = await res.json();
       setProfile(data);
@@ -48,6 +52,10 @@ export default function ProfilePage() {
 
   const fetchSubjects = async () => {
     const res = await fetch('/api/subjects');
+    if (res.status === 401) {
+      router.push('/login');
+      return;
+    }
     if (res.ok) {
       setSubjects(await res.json());
     }
@@ -57,6 +65,10 @@ export default function ProfilePage() {
     const params = new URLSearchParams();
     if (subjectFilter) params.set('subject', subjectFilter);
     const res = await fetch(`/api/results?${params.toString()}`);
+    if (res.status === 401) {
+      router.push('/login');
+      return;
+    }
     if (res.ok) setResults(await res.json());
   };
 

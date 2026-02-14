@@ -28,14 +28,26 @@ export const useAuthStore = create<AuthState>()(
       error: null,
 
       initAuth: async () => {
+        set({ isLoading: true, error: null });
         try {
-          const res = await fetch('/api/auth/me');
+          const res = await fetch('/api/auth/me', { cache: 'no-store' });
           if (res.ok) {
             const data = await res.json();
-            set({ user: data.user });
+            const normalizedUser = data?.user
+              ? {
+                  id: data.user.id || data.user.userId || '',
+                  email: data.user.email || '',
+                  name: data.user.name || data.user.email?.split('@')?.[0] || '',
+                  role: data.user.role || 'user',
+                }
+              : null;
+            set({ user: normalizedUser, isLoading: false });
+            return;
           }
+          set({ user: null, isLoading: false });
         } catch (error) {
           console.error('Init auth error:', error);
+          set({ user: null, isLoading: false });
         }
       },
 

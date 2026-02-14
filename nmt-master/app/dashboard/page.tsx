@@ -61,6 +61,10 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/users/stats');
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setStats(data.stats);

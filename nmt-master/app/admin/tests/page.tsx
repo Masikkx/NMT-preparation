@@ -52,6 +52,14 @@ export default function AdminTestsPage() {
       if (subjectFilter) params.set('subject', subjectFilter);
       if (typeFilter) params.set('type', typeFilter);
       const res = await fetch(`/api/tests?${params.toString()}`);
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (res.status === 403) {
+        router.push('/');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setTests(data);
@@ -66,6 +74,10 @@ export default function AdminTestsPage() {
   const fetchSubjects = async () => {
     try {
       const res = await fetch('/api/subjects');
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setSubjects(data);
