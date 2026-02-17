@@ -834,29 +834,55 @@ export default function AdminEditTestPage() {
     }
 
     const questionBlocks: { id: number; text: string }[] = [];
-    const questionStartRegex =
+    const bodyLines = body
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/^\d{1,6}$/.test(l));
+    let currentId = 0;
+    let currentLines: string[] = [];
+    let inMatching = false;
+    let seenOptions = false;
+    const optionHeaderRegex =
       getSubjectSlug() === 'mathematics'
-        ? /(^|\n)\s*(\d+)(?:\.)?\s+/g
-        : /(^|\n)\s*(\d+)[.)]\s+/g;
-    const starts: { id: number; index: number }[] = [];
-    let match: RegExpExecArray | null;
-    let expectedId = 0;
-    while ((match = questionStartRegex.exec(body)) !== null) {
-      const id = Number(match[2]);
-      const index = match.index + (match[1]?.length || 0);
-      if (expectedId === 0 || id > expectedId) {
-        starts.push({ id, index });
-        expectedId = id;
+        ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
+        : /^\s*([A-ZА-ЯІЇЄҐ])\.\s+/;
+
+    const flushBlock = () => {
+      if (currentId > 0 && currentLines.length > 0) {
+        questionBlocks.push({
+          id: currentId,
+          text: normalizeInline(currentLines.join('\n')).trim(),
+        });
+      }
+    };
+
+    for (const line of bodyLines) {
+      const m = line.match(
+        getSubjectSlug() === 'mathematics' ? /^(\d+)(?:\.)?\s*(.*)$/ : /^(\d+)[.)]\s*(.*)$/
+      );
+      if (m) {
+        const num = Number(m[1]);
+        const isPotentialStart = num > currentId;
+        const isMatchingListItem = inMatching && num <= 4 && !seenOptions;
+        if (isPotentialStart && !isMatchingListItem) {
+          flushBlock();
+          currentId = num;
+          currentLines = [line];
+          inMatching = /Установіть\s+відповідність/i.test(line);
+          seenOptions = optionHeaderRegex.test(line);
+          continue;
+        }
+      }
+      if (currentId === 0) continue;
+      currentLines.push(line);
+      if (!inMatching && /Установіть\s+відповідність/i.test(line)) {
+        inMatching = true;
+      }
+      if (optionHeaderRegex.test(line)) {
+        seenOptions = true;
       }
     }
-    for (let i = 0; i < starts.length; i++) {
-      const from = starts[i].index;
-      const to = i + 1 < starts.length ? starts[i + 1].index : body.length;
-      const text = normalizeInline(body.slice(from, to)).trim();
-      if (text) {
-        questionBlocks.push({ id: starts[i].id, text });
-      }
-    }
+    flushBlock();
 
     const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
     const sequenceHintRegex =
