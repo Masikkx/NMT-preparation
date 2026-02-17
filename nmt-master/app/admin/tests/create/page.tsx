@@ -736,8 +736,14 @@ export default function CreateTestPage() {
 
       const forceMatchingByAnswer = answerLetters.length === 4;
       const forceSelectThreeByAnswer = answerLetters.length === 3;
+      const historyMatchingIds = new Set([1, 9, 11, 14, 18]);
+      const historySelectThreeIds = new Set([4]);
+      const isHistorySubject = testData.subject === 'history-ukraine';
+      const forceHistoryMatching = isHistorySubject && historyMatchingIds.has(qb.id);
+      const forceHistorySelectThree = isHistorySubject && historySelectThreeIds.has(qb.id);
 
       const isMatching = isForcedMatching
+        || forceHistoryMatching
         || forceMatchingByAnswer
         || (/Установіть\s+відповідність/i.test(qb.text)
           && leftMatchLines.length >= (testData.subject === 'mathematics' ? 3 : 4)
@@ -751,7 +757,7 @@ export default function CreateTestPage() {
         /(?:оберіть|виберіть|укажіть|позначте).{0,48}(?:три|3)\b/i.test(qb.text)
         || /3\s*(?:з|із)\s*7/i.test(qb.text);
       const isSelectThree = !isMatching && !isSequence
-        && (forceSelectThreeByAnswer || (selectThreeHint && options.length >= 5));
+        && (forceHistorySelectThree || forceSelectThreeByAnswer || (selectThreeHint && options.length >= 5));
       const isWritten = isForcedWritten
         || (options.length === 0 && /^\d+$/.test(ans) && testData.subject === 'mathematics');
 
