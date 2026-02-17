@@ -802,7 +802,7 @@ export default function AdminEditTestPage() {
     };
 
     const normalized = enforceCanonicalFormat(normalizeInline(normalizeBulkInput(text)));
-    const parts = normalized.split(/ВІДПОВІДІ|ANSWERS/i);
+    const parts = normalized.split(/(?:^|\n)(?:ВІДПОВІДІ|ANSWERS)(?:\n|$)/i);
     if (parts.length < 2) {
       setBulkError(t('adminCreateTest.bulkNoAnswers'));
       return;
