@@ -600,18 +600,29 @@ export default function CreateTestPage() {
     };
 
     const normalized = enforceCanonicalFormat(normalizeInline(normalizeBulkInput(text)));
-    const parts = normalized.split(/(?:^|\n)(?:ВІДПОВІДІ|ANSWERS)(?:\n|$)/i);
-    if (parts.length < 2) {
+    const splitByAnswersHeader = (input: string) => {
+      const headerRegex = /(?:^|[\n\r]|\s)(ВІДПОВІДІ|ANSWERS)(?=\s*(?:\r?\n|\s)+\d+\.\s*[А-ЯІЇЄҐA-Z])/iu;
+      const m = input.match(headerRegex);
+      if (!m || m.index === undefined) return null;
+      const header = m[1];
+      const headerStart = m.index + m[0].lastIndexOf(header);
+      return {
+        body: input.slice(0, headerStart).trim(),
+        answers: input.slice(headerStart + header.length).trim(),
+      };
+    };
+    const split = splitByAnswersHeader(normalized);
+    if (!split) {
       setBulkError(t('adminCreateTest.bulkNoAnswers'));
       return;
     }
-    const body = normalizeInline(parts[0])
+    const body = normalizeInline(split.body)
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l && !/^\d{1,6}$/.test(l))
       .join('\n')
       .trim();
-    const answersBlock = parts.slice(1).join('\n').trim();
+    const answersBlock = split.answers;
 
     const normalizeAnswerToken = (value: string) =>
       normalizeMatchingAnswerValue(value)
