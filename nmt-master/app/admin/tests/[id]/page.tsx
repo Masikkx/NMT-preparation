@@ -664,11 +664,19 @@ export default function AdminEditTestPage() {
       const expandedLines: string[] = [];
       for (const line of lines) {
         if (!line) continue;
-        if (subjectSlug === 'mathematics') {
-          const parts = line.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
-          for (const part of parts) expandedLines.push(part.trim());
-        } else {
-          expandedLines.push(line);
+        const segmented = line
+          .replace(/([^\n])\s+(\d{1,3}[.)]\s+)/g, '$1\n$2')
+          .replace(/([^\n])\s+([A-ZА-ЯІЇЄҐ])\.\s+(?=\S)/g, '$1\n$2. ')
+          .split('\n')
+          .map((part) => part.trim())
+          .filter(Boolean);
+        for (const segment of segmented) {
+          if (subjectSlug === 'mathematics') {
+            const parts = segment.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
+            for (const part of parts) expandedLines.push(part.trim());
+          } else {
+            expandedLines.push(segment);
+          }
         }
       }
       const out: string[] = [];
@@ -679,7 +687,7 @@ export default function AdminEditTestPage() {
           : null;
       const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
       const isQuestionStart = (line: string) =>
-        subjectSlug === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
+        subjectSlug === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+[.)]\s/.test(line);
       const optionLineRegex =
         subjectSlug === 'mathematics'
           ? /^[АБВГДЕЄ](?:\.)?\s+/
@@ -813,8 +821,13 @@ export default function AdminEditTestPage() {
       .map((l) => l.trim())
       .filter(Boolean);
     for (const line of answerLines) {
-      const m = line.match(/^(\d+)[.)]?\s*(.+)$/);
-      if (m) {
+      const chunks = line
+        .split(/(?=\d+[.)]?\s+)/g)
+        .map((c) => c.trim())
+        .filter(Boolean);
+      for (const chunk of chunks) {
+        const m = chunk.match(/^(\d+)[.)]?\s*(.+)$/);
+        if (!m) continue;
         const rest = m[2].trim().replace(/^[\s.]+/, '');
         answerMap.set(Number(m[1]), normalizeMatchingAnswerValue(rest).toUpperCase());
       }
@@ -845,7 +858,7 @@ export default function AdminEditTestPage() {
 
     for (const line of bodyLines) {
       const m = line.match(
-        getSubjectSlug() === 'mathematics' ? /^(\d+)(?:\.)?\s*(.*)$/ : /^(\d+)\.\s*(.*)$/
+        getSubjectSlug() === 'mathematics' ? /^(\d+)(?:\.)?\s*(.*)$/ : /^(\d+)[.)]\s*(.*)$/
       );
       if (m) {
         const num = Number(m[1]);
@@ -1081,11 +1094,19 @@ export default function AdminEditTestPage() {
     const expandedLines: string[] = [];
     for (const line of lines) {
       if (!line) continue;
-      if (getSubjectSlug() === 'mathematics') {
-        const parts = line.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
-        for (const part of parts) expandedLines.push(part.trim());
-      } else {
-        expandedLines.push(line);
+      const segmented = line
+        .replace(/([^\n])\s+(\d{1,3}[.)]\s+)/g, '$1\n$2')
+        .replace(/([^\n])\s+([A-ZА-ЯІЇЄҐ])\.\s+(?=\S)/g, '$1\n$2. ')
+        .split('\n')
+        .map((part) => part.trim())
+        .filter(Boolean);
+      for (const segment of segmented) {
+        if (getSubjectSlug() === 'mathematics') {
+          const parts = segment.split(/(?<=\S)\s+(?=\d{1,2}\s+[А-ЯІЇЄҐA-Z])/g);
+          for (const part of parts) expandedLines.push(part.trim());
+        } else {
+          expandedLines.push(segment);
+        }
       }
     }
     const out: string[] = [];
@@ -1096,7 +1117,7 @@ export default function AdminEditTestPage() {
         : null;
     const answersHeaderRegex = /^(№\s*завдання\s*правильна\s*відповідь|ВІДПОВІДІ|ANSWERS)/i;
     const isQuestionStart = (line: string) =>
-      getSubjectSlug() === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+\.\s/.test(line);
+      getSubjectSlug() === 'mathematics' ? /^\d+(?:\.)?\s/.test(line) : /^\d+[.)]\s/.test(line);
     const optionLineRegex =
       getSubjectSlug() === 'mathematics'
         ? /^[АБВГДЕЄ](?:\.)?\s+/
