@@ -8,7 +8,7 @@ import { useLanguageStore } from '@/store/language';
 import { InlineMath, BlockMath } from 'react-katex';
 
 interface Question {
-  type: 'single_choice' | 'written' | 'matching' | 'select_three';
+  type: 'single_choice' | 'written' | 'matching' | 'select_three' | 'multiple_answers';
   text: string;
   options?: string[];
   correctAnswer?: number | number[] | string | string[];
@@ -620,25 +620,18 @@ export default function CreateTestPage() {
         .toUpperCase();
 
     const answerMap = new Map<number, string>();
-    const answerEntries: Array<{ id: number; value: string }> = [];
-    const answerLines = normalizeInline(answersBlock)
+    const answerLineRegex = /^\s*(\d+)\.\s*([А-ЯІЇЄҐ]+)\s*$/iu;
+    const answerLines = answersBlock
+      .replace(/\r\n/g, '\n')
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean);
     for (const line of answerLines) {
-      const chunks = line
-        .split(/(?=\d+\s*[.)\-:]?\s*)/g)
-        .map((c) => c.trim())
-        .filter(Boolean);
-      for (const chunk of chunks) {
-        const m = chunk.match(/^(\d+)\s*[.)\-:]?\s*(.+)$/);
-        if (!m) continue;
-        const id = Number(m[1]);
-        const rest = m[2].trim().replace(/^[\s.]+/, '');
-        const normalizedValue = normalizeAnswerToken(rest);
-        answerMap.set(id, normalizedValue);
-        answerEntries.push({ id, value: normalizedValue });
-      }
+      const m = line.match(answerLineRegex);
+      if (!m) continue;
+      const id = Number(m[1]);
+      const value = normalizeAnswerToken(m[2]);
+      answerMap.set(id, value);
     }
 
     const questionBlocks: { id: number; text: string }[] = [];
@@ -701,7 +694,7 @@ export default function CreateTestPage() {
     for (let idx = 0; idx < questionBlocks.length; idx++) {
       const qb = questionBlocks[idx];
       const listIndex = idx + 1;
-      const ans = answerMap.get(qb.id) || answerEntries[idx]?.value || '';
+      const ans = answerMap.get(qb.id) || '';
       const isMathSubject = testData.subject === 'mathematics';
       const isForcedMatching = isMathSubject && qb.id >= 16 && qb.id <= 18;
       const isForcedWritten = isMathSubject && qb.id >= 19 && qb.id <= 22;
@@ -735,7 +728,7 @@ export default function CreateTestPage() {
       }
 
       const options = optionLinesText;
-      const answerLetters = ans.replace(/[^A-ZА-ЯІЇЄҐ]/g, '').toUpperCase();
+      const answerLetters = ans.replace(/[^А-ЯІЇЄҐ]/giu, '').toUpperCase();
       const sequenceHint = sequenceHintRegex.test(qb.text);
       const suppressOptions =
         /на\s+якому\s+рисунку\s+зображено/i.test(qb.text) ||
@@ -744,32 +737,11 @@ export default function CreateTestPage() {
       let type: Question['type'] = 'single_choice';
       let correctAnswer: Question['correctAnswer'] = 0;
 
-      const forceMatchingByAnswer = false;
-      const forceSelectThreeByAnswer = answerLetters.length === 3;
-      const historyMatchingIds = new Set([1, 9, 11, 14]);
-      const historySelectThreeIds = new Set([4]);
-      const historySequenceIds = new Set([18]);
-      const isHistorySubject = testData.subject === 'history-ukraine';
-      const forceHistoryMatching = isHistorySubject && historyMatchingIds.has(qb.id);
-      const forceHistorySelectThree = isHistorySubject && historySelectThreeIds.has(qb.id);
-      const forceHistorySequence = isHistorySubject && historySequenceIds.has(qb.id);
-
-      const isMatching = isForcedMatching
-        || forceHistoryMatching
-        || forceMatchingByAnswer
-        || (/Установіть\s+відповідність/i.test(qb.text)
-          && leftMatchLines.length >= (testData.subject === 'mathematics' ? 3 : 4)
-          && optionLinesRaw.length >= 4
-          && (testData.subject === 'mathematics' ? answerLetters.length >= 3 : answerLetters.length === 4));
-      const isSequence = forceHistorySequence || (testData.subject === 'history-ukraine'
-        && sequenceHint
-        && optionLinesRaw.length >= 4
-        && answerLetters.length >= 4);
-      const selectThreeHint =
-        /(?:оберіть|виберіть|укажіть|позначте).{0,48}(?:три|3)\b/i.test(qb.text)
-        || /3\s*(?:з|із)\s*7/i.test(qb.text);
-      const isSelectThree = !isMatching && !isSequence
-        && (forceHistorySelectThree || forceSelectThreeByAnswer || (selectThreeHint && options.length >= 5));
+      const hasMatchingHint = /Установіть\s+відповідність/i.test(qb.text);
+      const hasSequenceHint = /Установіть\s+послідовність/i.test(qb.text);
+      const isMatching = answerLetters.length > 1 && (hasMatchingHint || isForcedMatching);
+      const isSequence = answerLetters.length > 1 && hasSequenceHint && !isMatching;
+      const isMultipleChoice = answerLetters.length > 1 && !isMatching && !isSequence;
       const isWritten = isForcedWritten
         || (options.length === 0 && /^\d+$/.test(ans) && testData.subject === 'mathematics');
 
@@ -778,25 +750,14 @@ export default function CreateTestPage() {
         correctAnswer = ans;
       } else if (isMatching || isSequence) {
         type = 'matching';
-        const rowCount = testData.subject === 'mathematics'
-          ? Math.min(4, Math.max(3, answerLetters.length))
-          : 4;
-        correctAnswer = answerLetters.slice(0, rowCount).split('');
-      } else if (isSelectThree) {
-        type = 'select_three';
-        const indices = answerLetters.split('').map((l) => {
+        correctAnswer = Array.from(answerLetters);
+      } else if (isMultipleChoice) {
+        type = 'multiple_answers';
+        const indices = Array.from(answerLetters).map((l) => {
           const idx = letterOrder.indexOf(l);
-          return idx >= 0 ? String(idx + 1) : '';
-        }).filter(Boolean);
+          return idx >= 0 ? idx : -1;
+        }).filter((v) => v >= 0);
         correctAnswer = indices;
-        if (indices.length !== 3) {
-          warnings[listIndex] = t('adminCreateTest.bulkWarnSelectThree');
-        }
-        if (options.length !== 7) {
-          warnings[listIndex] = warnings[listIndex]
-            ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnNeedSeven')}`
-            : t('adminCreateTest.bulkWarnNeedSeven');
-        }
       } else if (options.length >= 4 && !suppressOptions) {
         type = 'single_choice';
         const idx = letterOrder.indexOf(answerLetters[0]);
@@ -810,7 +771,7 @@ export default function CreateTestPage() {
         correctAnswer = 0;
         warnings[listIndex] = t('adminCreateTest.bulkWarnNoOptions');
       }
-      if (sequenceHint && !isSequence) {
+      if (sequenceHint && !isSequence && answerLetters.length > 1) {
         warnings[listIndex] = warnings[listIndex]
           ? warnings[listIndex] + ` · ${t('adminCreateTest.bulkWarnSequence')}`
           : t('adminCreateTest.bulkWarnSequence');
@@ -851,6 +812,10 @@ export default function CreateTestPage() {
           ? []
           : type === 'written' || type === 'matching'
           ? []
+          : type === 'multiple_answers'
+          ? options.length > 0
+            ? options.slice(0, letterOrder.length).map((_, i) => letterOrder[i] || String(i + 1))
+            : letterOrder.slice(0, 4)
           : type === 'select_three'
           ? Array.from({ length: 7 }, (_, i) => options[i] ?? '')
           : type === 'single_choice' && options.length > 0
