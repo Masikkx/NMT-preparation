@@ -709,7 +709,7 @@ export default function CreateTestPage() {
       const imageUrl = imageMatch ? imageMatch[1].trim() : '';
       const cleanedText = qb.text.replace(/\[(?:image|img)\s*:\s*[^\]]+\]/ig, '').trim();
       const lines = normalizeInline(cleanedText)
-        .replace(testData.subject === 'mathematics' ? /^\d+(?:\.)?\s*/ : /^\d+\.\s*/, '')
+        .replace(testData.subject === 'mathematics' ? /^\d+(?:\.)?\s*/ : /^\d+[.)]\s*/, '')
         .split('\n')
         .map((l) => l.trim())
         .filter((l) => l && !/^\d{1,6}$/.test(l));
@@ -717,17 +717,17 @@ export default function CreateTestPage() {
       const optionHeaderRegex =
         testData.subject === 'mathematics'
           ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
-          : /^\s*([A-ZА-ЯІЇЄҐ])\.\s+/;
+          : /^\s*([A-ZА-ЯІЇЄҐ])[.)]\s+/;
       const optionLinesRaw: string[] = [];
       const optionLinesText: string[] = [];
-      const leftMatchLines = lines.filter((l) => /^\d+\.\s/.test(l));
+      const leftMatchLines = lines.filter((l) => /^\d+[.)]\s/.test(l));
       for (const line of lines) {
         const headerMatch = line.match(optionHeaderRegex);
         if (headerMatch) {
           const text = line.replace(optionHeaderRegex, '').trim();
           optionLinesText.push(text);
           optionLinesRaw.push(`${headerMatch[1]}. ${text}`.trim());
-        } else if (optionLinesText.length > 0 && !/^\d+\.\s/.test(line)) {
+        } else if (optionLinesText.length > 0 && !/^\d+[.)]\s/.test(line)) {
           // continuation of previous option line
           optionLinesText[optionLinesText.length - 1] = `${optionLinesText[optionLinesText.length - 1]} ${line}`.trim();
           optionLinesRaw[optionLinesRaw.length - 1] = `${optionLinesRaw[optionLinesRaw.length - 1]} ${line}`.trim();
@@ -744,13 +744,15 @@ export default function CreateTestPage() {
       let type: Question['type'] = 'single_choice';
       let correctAnswer: Question['correctAnswer'] = 0;
 
-      const forceMatchingByAnswer = answerLetters.length === 4;
+      const forceMatchingByAnswer = false;
       const forceSelectThreeByAnswer = answerLetters.length === 3;
-      const historyMatchingIds = new Set([1, 9, 11, 14, 18]);
+      const historyMatchingIds = new Set([1, 9, 11, 14]);
       const historySelectThreeIds = new Set([4]);
+      const historySequenceIds = new Set([18]);
       const isHistorySubject = testData.subject === 'history-ukraine';
       const forceHistoryMatching = isHistorySubject && historyMatchingIds.has(qb.id);
       const forceHistorySelectThree = isHistorySubject && historySelectThreeIds.has(qb.id);
+      const forceHistorySequence = isHistorySubject && historySequenceIds.has(qb.id);
 
       const isMatching = isForcedMatching
         || forceHistoryMatching
@@ -759,10 +761,10 @@ export default function CreateTestPage() {
           && leftMatchLines.length >= (testData.subject === 'mathematics' ? 3 : 4)
           && optionLinesRaw.length >= 4
           && (testData.subject === 'mathematics' ? answerLetters.length >= 3 : answerLetters.length === 4));
-      const isSequence = testData.subject === 'history-ukraine'
+      const isSequence = forceHistorySequence || (testData.subject === 'history-ukraine'
         && sequenceHint
         && optionLinesRaw.length >= 4
-        && answerLetters.length >= 4;
+        && answerLetters.length >= 4);
       const selectThreeHint =
         /(?:оберіть|виберіть|укажіть|позначте).{0,48}(?:три|3)\b/i.test(qb.text)
         || /3\s*(?:з|із)\s*7/i.test(qb.text);
@@ -825,13 +827,13 @@ export default function CreateTestPage() {
       }
 
       const questionText = (() => {
-        if (isMatching) {
-          const prompt = lines.find((l) => !/^\d+\./.test(l) && !/^[А-ЯA-Z]\./.test(l)) || '';
+        if (isMatching || isSequence) {
+          const prompt = lines.find((l) => !/^\d+[.)]/.test(l) && !/^[А-ЯІЇЄҐA-Z][.)]/.test(l)) || '';
           const left = leftMatchLines.join('\n');
           const right = optionLinesRaw.join('\n');
           return [prompt, left, right].filter(Boolean).join('\n');
         }
-        const firstOptionIndex = lines.findIndex((l) => /^[А-ЯA-Z]\./.test(l));
+        const firstOptionIndex = lines.findIndex((l) => /^[А-ЯІЇЄҐA-Z][.)]/.test(l));
         if (firstOptionIndex === -1) return lines.join('\n');
         if (type === 'single_choice' && optionLinesRaw.length > 0) {
           return [lines.slice(0, firstOptionIndex).join('\n'), optionLinesRaw.join('\n')]
