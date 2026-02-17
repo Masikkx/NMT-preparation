@@ -613,21 +613,31 @@ export default function CreateTestPage() {
       .trim();
     const answersBlock = parts.slice(1).join('\n').trim();
 
+    const normalizeAnswerToken = (value: string) =>
+      normalizeMatchingAnswerValue(value)
+        .replace(/[,:;]+/g, ' ')
+        .replace(/\s+/g, '')
+        .toUpperCase();
+
     const answerMap = new Map<number, string>();
+    const answerEntries: Array<{ id: number; value: string }> = [];
     const answerLines = normalizeInline(answersBlock)
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean);
     for (const line of answerLines) {
       const chunks = line
-        .split(/(?=\d+[.)]?\s+)/g)
+        .split(/(?=\d+\s*[.)\-:]?\s*)/g)
         .map((c) => c.trim())
         .filter(Boolean);
       for (const chunk of chunks) {
-        const m = chunk.match(/^(\d+)[.)]?\s*(.+)$/);
+        const m = chunk.match(/^(\d+)\s*[.)\-:]?\s*(.+)$/);
         if (!m) continue;
+        const id = Number(m[1]);
         const rest = m[2].trim().replace(/^[\s.]+/, '');
-        answerMap.set(Number(m[1]), normalizeMatchingAnswerValue(rest).toUpperCase());
+        const normalizedValue = normalizeAnswerToken(rest);
+        answerMap.set(id, normalizedValue);
+        answerEntries.push({ id, value: normalizedValue });
       }
     }
 
@@ -691,7 +701,7 @@ export default function CreateTestPage() {
     for (let idx = 0; idx < questionBlocks.length; idx++) {
       const qb = questionBlocks[idx];
       const listIndex = idx + 1;
-      const ans = answerMap.get(qb.id) || '';
+      const ans = answerMap.get(qb.id) || answerEntries[idx]?.value || '';
       const isMathSubject = testData.subject === 'mathematics';
       const isForcedMatching = isMathSubject && qb.id >= 16 && qb.id <= 18;
       const isForcedWritten = isMathSubject && qb.id >= 19 && qb.id <= 22;
