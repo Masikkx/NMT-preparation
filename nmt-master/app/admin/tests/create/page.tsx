@@ -635,55 +635,32 @@ export default function CreateTestPage() {
     }
 
     const questionBlocks: { id: number; text: string }[] = [];
-    const bodyLines = body
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && !/^\d{1,6}$/.test(l));
-    let currentId = 0;
-    let currentLines: string[] = [];
-    let inMatching = false;
-    let seenOptions = false;
-    const optionHeaderRegex =
-      testData.subject === 'mathematics'
-        ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
-        : /^\s*([A-ZА-ЯІЇЄҐ])\.\s+/;
+    const bodyText = body.replace(/\r\n/g, '\n');
+    const questionMarkerRegex = /(?:^|\n|\s)(\d+)\.(?=\s)/gmu;
+    const starts: Array<{ id: number; index: number }> = [];
+    let marker: RegExpExecArray | null;
+    let lastAcceptedId = 0;
 
-    const flushBlock = () => {
-      if (currentId > 0 && currentLines.length > 0) {
-        questionBlocks.push({
-          id: currentId,
-          text: normalizeInline(currentLines.join('\n')).trim(),
-        });
-      }
-    };
+    while ((marker = questionMarkerRegex.exec(bodyText)) !== null) {
+      const id = Number(marker[1]);
+      if (!Number.isFinite(id) || id <= 0 || id > 500) continue;
 
-    for (const line of bodyLines) {
-      const m = line.match(
-        testData.subject === 'mathematics' ? /^(\d+)(?:\.)?\s*(.*)$/ : /^(\d+)[.)]\s*(.*)$/
-      );
-      if (m) {
-        const num = Number(m[1]);
-        const isPotentialStart = currentId === 0 ? num >= 1 : num === currentId + 1;
-        const isMatchingListItem = inMatching && num <= 4 && !seenOptions;
-        if (isPotentialStart && !isMatchingListItem) {
-          flushBlock();
-          currentId = num;
-          currentLines = [line];
-          inMatching = /Установіть\s+відповідність/i.test(line);
-          seenOptions = optionHeaderRegex.test(line);
-          continue;
-        }
-      }
-      if (currentId === 0) continue;
-      currentLines.push(line);
-      if (!inMatching && /Установіть\s+відповідність/i.test(line)) {
-        inMatching = true;
-      }
-      if (optionHeaderRegex.test(line)) {
-        seenOptions = true;
-      }
+      const tokenLen = marker[1].length + 1; // "N."
+      const startIndex = marker.index + (marker[0].length - tokenLen);
+      const isQuestionProgression = lastAcceptedId === 0 || id > lastAcceptedId;
+      if (!isQuestionProgression) continue;
+
+      starts.push({ id, index: startIndex });
+      lastAcceptedId = id;
     }
-    flushBlock();
+
+    for (let i = 0; i < starts.length; i++) {
+      const from = starts[i].index;
+      const to = i + 1 < starts.length ? starts[i + 1].index : bodyText.length;
+      const blockText = normalizeInline(bodyText.slice(from, to)).trim();
+      if (!blockText || /^\d+\.\s*$/.test(blockText)) continue;
+      questionBlocks.push({ id: starts[i].id, text: blockText });
+    }
 
     const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
     const sequenceHintRegex =
