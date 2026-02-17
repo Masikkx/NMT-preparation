@@ -670,7 +670,7 @@ export default function CreateTestPage() {
       );
       if (m) {
         const num = Number(m[1]);
-        const isPotentialStart = num > currentId;
+        const isPotentialStart = currentId === 0 ? num >= 1 : num === currentId + 1;
         const isMatchingListItem = inMatching && num <= 4 && !seenOptions;
         if (isPotentialStart && !isMatchingListItem) {
           flushBlock();
