@@ -849,7 +849,7 @@ export default function AdminEditTestPage() {
 
     const questionBlocks: { id: number; text: string }[] = [];
     const bodyText = body.replace(/\r\n/g, '\n');
-    const questionMarkerRegex = /(\d+)\.(?=\s)/gmu;
+    const questionMarkerRegex = /(\d+)\.\s+(?=(?:[«"'(\[]\s*)?[A-ZА-ЯІЇЄҐ])/gmu;
     const starts: Array<{ id: number; index: number }> = [];
     let marker: RegExpExecArray | null;
     let expectedQuestionNumber: number | null = null;
@@ -880,7 +880,7 @@ export default function AdminEditTestPage() {
       }
 
       if (id !== expectedQuestionNumber) continue;
-      if (!strongBoundary) continue;
+      if (!strongBoundary && prevChar !== '\n') continue;
 
       starts.push({ id, index: markerIndex });
       expectedQuestionNumber += 1;
