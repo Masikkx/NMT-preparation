@@ -838,22 +838,41 @@ export default function AdminEditTestPage() {
 
     const questionBlocks: { id: number; text: string }[] = [];
     const bodyText = body.replace(/\r\n/g, '\n');
-    const questionMarkerRegex = /(?:^|\n|\s)(\d+)\.(?=\s)/gmu;
+    const questionMarkerRegex = /(\d+)\.(?=\s)/gmu;
     const starts: Array<{ id: number; index: number }> = [];
     let marker: RegExpExecArray | null;
-    let lastAcceptedId = 0;
+    let expectedQuestionNumber: number | null = null;
+
+    const isStrongQuestionBoundary = (textBefore: string, markerIndex: number) => {
+      if (markerIndex === 0) return true;
+      if (/(?:^|\n)\s*\n\s*$/u.test(textBefore)) return true;
+      if (/\n\s*[А-ЯІЇЄҐA-Z][.)]\s+[^\n]*$/u.test(textBefore)) return true;
+      return false;
+    };
 
     while ((marker = questionMarkerRegex.exec(bodyText)) !== null) {
       const id = Number(marker[1]);
+      const markerIndex = marker.index;
       if (!Number.isFinite(id) || id <= 0 || id > 500) continue;
 
-      const tokenLen = marker[1].length + 1; // "N."
-      const startIndex = marker.index + (marker[0].length - tokenLen);
-      const isQuestionProgression = lastAcceptedId === 0 || id > lastAcceptedId;
-      if (!isQuestionProgression) continue;
+      const prevChar = markerIndex > 0 ? bodyText[markerIndex - 1] : '';
+      const allowedPrefix = markerIndex === 0 || prevChar === '\n' || /\s/u.test(prevChar);
+      if (!allowedPrefix) continue;
 
-      starts.push({ id, index: startIndex });
-      lastAcceptedId = id;
+      const before = bodyText.slice(Math.max(0, markerIndex - 500), markerIndex);
+      const strongBoundary = isStrongQuestionBoundary(before, markerIndex);
+
+      if (expectedQuestionNumber === null) {
+        starts.push({ id, index: markerIndex });
+        expectedQuestionNumber = id + 1;
+        continue;
+      }
+
+      if (id !== expectedQuestionNumber) continue;
+      if (!strongBoundary) continue;
+
+      starts.push({ id, index: markerIndex });
+      expectedQuestionNumber += 1;
     }
 
     for (let i = 0; i < starts.length; i++) {
