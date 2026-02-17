@@ -1253,14 +1253,14 @@ export default function CreateTestPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => parseBulkText('replace', bulkNormalized || bulkText)}
+                    onClick={() => parseBulkText('replace', bulkText)}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
                   >
                     {t('adminCreateTest.parseBulk')}
                   </button>
                   <button
                     type="button"
-                    onClick={() => parseBulkText('append', bulkNormalized || bulkText)}
+                    onClick={() => parseBulkText('append', bulkText)}
                     className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-lg font-semibold"
                   >
                     {t('adminCreateTest.appendBulk')}

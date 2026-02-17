@@ -1416,7 +1416,7 @@ export default function AdminEditTestPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => parseBulkText(bulkNormalized || bulkText)}
+                    onClick={() => parseBulkText(bulkText)}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
                   >
                     {t('adminCreateTest.appendBulk')}
