@@ -734,7 +734,11 @@ export default function CreateTestPage() {
       let type: Question['type'] = 'single_choice';
       let correctAnswer: Question['correctAnswer'] = 0;
 
+      const forceMatchingByAnswer = answerLetters.length === 4;
+      const forceSelectThreeByAnswer = answerLetters.length === 3;
+
       const isMatching = isForcedMatching
+        || forceMatchingByAnswer
         || (/Установіть\s+відповідність/i.test(qb.text)
           && leftMatchLines.length >= (testData.subject === 'mathematics' ? 3 : 4)
           && optionLinesRaw.length >= 4
@@ -747,7 +751,7 @@ export default function CreateTestPage() {
         /(?:оберіть|виберіть|укажіть|позначте).{0,48}(?:три|3)\b/i.test(qb.text)
         || /3\s*(?:з|із)\s*7/i.test(qb.text);
       const isSelectThree = !isMatching && !isSequence
-        && (answerLetters.length === 3 || (selectThreeHint && options.length >= 5));
+        && (forceSelectThreeByAnswer || (selectThreeHint && options.length >= 5));
       const isWritten = isForcedWritten
         || (options.length === 0 && /^\d+$/.test(ans) && testData.subject === 'mathematics');
 
