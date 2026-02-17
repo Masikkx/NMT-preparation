@@ -895,6 +895,45 @@ export default function AdminEditTestPage() {
     }
 
     const letterOrder = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
+    const extractGlobalOptionGroups = (text: string) => {
+      const lines = normalizeInline(text).replace(/\r\n/g, '\n').split('\n').map((l) => l.trim());
+      const optionHeaderRegex = /^([А-ЯІЇЄҐ])[.)]\s*(.*)$/u;
+      const groups: string[][] = [];
+      let current: string[] = [];
+      let lastIdx = -1;
+      for (const line of lines) {
+        if (!line) continue;
+        if (/^\d+\.\s+/u.test(line)) {
+          if (current.length > 0) {
+            groups.push(current);
+            current = [];
+            lastIdx = -1;
+          }
+          continue;
+        }
+        const m = line.match(optionHeaderRegex);
+        if (m) {
+          const letter = m[1];
+          const idx = letterOrder.indexOf(letter);
+          if (idx < 0) continue;
+          if (current.length > 0 && idx <= lastIdx) {
+            groups.push(current);
+            current = [];
+            lastIdx = -1;
+          }
+          current.push(`${letter}. ${m[2].trim()}`.trim());
+          lastIdx = idx;
+          continue;
+        }
+        if (current.length > 0) {
+          current[current.length - 1] = `${current[current.length - 1]} ${line}`.trim();
+        }
+      }
+      if (current.length > 0) groups.push(current);
+      return groups.filter((g) => g.length >= 2);
+    };
+    const globalOptionGroups = extractGlobalOptionGroups(bodyText);
+    let globalOptionCursor = 0;
     const sequenceHintRegex =
       /(Установіть\s+(послідовність|хронологію)|у\s*хронологічній\s*послідовності|розташуйте\s+в\s+хронологічній\s+послідовності|розташуйте\s+в\s+правильній\s+послідовності)/i;
     const parsed: EditQuestion[] = [];
@@ -919,8 +958,8 @@ export default function AdminEditTestPage() {
         getSubjectSlug() === 'mathematics'
           ? /^\s*([АБВГДЕЄ])(?:\.)?\s+/
           : /^\s*([A-ZА-ЯІЇЄҐ])[.)]\s+/;
-      const optionLinesRaw: string[] = [];
-      const optionLinesText: string[] = [];
+      let optionLinesRaw: string[] = [];
+      let optionLinesText: string[] = [];
       const leftMatchLines = lines.filter((l) => /^\d+[.)]\s/.test(l));
       for (const line of lines) {
         const headerMatch = line.match(optionHeaderRegex);
@@ -931,6 +970,17 @@ export default function AdminEditTestPage() {
         } else if (optionLinesText.length > 0 && !/^\d+[.)]\s/.test(line)) {
           optionLinesText[optionLinesText.length - 1] = `${optionLinesText[optionLinesText.length - 1]} ${line}`.trim();
           optionLinesRaw[optionLinesRaw.length - 1] = `${optionLinesRaw[optionLinesRaw.length - 1]} ${line}`.trim();
+        }
+      }
+
+      const nextGlobalGroup = globalOptionGroups[globalOptionCursor];
+      if (nextGlobalGroup) {
+        if (optionLinesRaw.length > 0) {
+          globalOptionCursor += 1;
+        } else {
+          optionLinesRaw = nextGlobalGroup.map((l) => l.trim()).filter(Boolean);
+          optionLinesText = optionLinesRaw.map((l) => l.replace(/^[А-ЯІЇЄҐ][.)]\s*/u, '').trim());
+          globalOptionCursor += 1;
         }
       }
 
