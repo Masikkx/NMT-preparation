@@ -1020,8 +1020,6 @@ export default function AdminEditTestPage() {
           ? options.length > 0
             ? options.slice(0, letterOrder.length).map((_, i) => letterOrder[i] || String(i + 1))
             : letterOrder.slice(0, 4)
-          : type === 'select_three'
-          ? Array.from({ length: 7 }, (_, i) => options[i] ?? '')
           : type === 'single_choice' && options.length > 0
           ? options.slice(0, 5).map((_, i) => letterOrder[i] || String(i + 1))
           : options.length > 0
