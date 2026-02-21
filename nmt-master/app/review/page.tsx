@@ -53,7 +53,7 @@ type SubjectStats = {
   streakDays: number;
 };
 
-const REVIEW_INTERVALS = [1, 3, 7, 14, 28] as const;
+const REVIEW_INTERVALS = [0, 3, 7, 14, 30, 60] as const;
 
 const SUBJECTS = [
   'Українська мова',
@@ -84,6 +84,12 @@ const addDaysYmd = (value: string, days: number): string => {
   return toYmd(date);
 };
 
+const addMonthsYmd = (value: string, months: number): string => {
+  const date = parseYmdLocal(value);
+  date.setMonth(date.getMonth() + months);
+  return toYmd(date);
+};
+
 const getWeekStartYmd = (value: string): string => {
   const date = parseYmdLocal(value);
   const mondayIndex = (date.getDay() + 6) % 7;
@@ -92,12 +98,35 @@ const getWeekStartYmd = (value: string): string => {
 };
 
 const getIntervalLabel = (days: number, lang: 'uk' | 'en') => {
+  if (days === 0) return lang === 'uk' ? 'Повтор у день вивчення' : 'Review on study day';
+
+  if (days === 7) return lang === 'uk' ? 'Повтор через 1 тиждень' : 'Review after 1 week';
+  if (days === 14) return lang === 'uk' ? 'Повтор через 2 тижні' : 'Review after 2 weeks';
+  if (days === 30) return lang === 'uk' ? 'Повтор через 1 місяць' : 'Review after 1 month';
+  if (days === 60) return lang === 'uk' ? 'Повтор через 2 місяці' : 'Review after 2 months';
+
   if (lang === 'uk') {
     if (days === 1) return 'Повтор через 1 день';
     return `Повтор через ${days} днів`;
   }
   if (days === 1) return 'Review after 1 day';
   return `Review after ${days} days`;
+};
+
+const getReviewDateByInterval = (studiedDate: string, intervalDays: number): string => {
+  if (intervalDays === 30) return addMonthsYmd(studiedDate, 1);
+  if (intervalDays === 60) return addMonthsYmd(studiedDate, 2);
+  return addDaysYmd(studiedDate, intervalDays);
+};
+
+const getIntervalChartLabel = (days: number): string => {
+  if (days === 0) return 'D0';
+  if (days === 3) return 'D3';
+  if (days === 7) return 'W1';
+  if (days === 14) return 'W2';
+  if (days === 30) return 'M1';
+  if (days === 60) return 'M2';
+  return `${days}d`;
 };
 
 const getEventKey = (event: Pick<ReviewEvent, 'itemId' | 'reviewDate' | 'intervalDays'>): string =>
@@ -176,7 +205,7 @@ export default function ReviewPage() {
         itemId: item.id,
         subject: item.subject,
         topic: item.topic,
-        reviewDate: addDaysYmd(item.studiedDate, intervalDays),
+        reviewDate: getReviewDateByInterval(item.studiedDate, intervalDays),
         intervalDays,
       })),
     );
@@ -352,7 +381,7 @@ export default function ReviewPage() {
     return REVIEW_INTERVALS.map((interval) => {
       const bucket = buckets.get(interval)!;
       return {
-        interval: `${interval}d`,
+        interval: getIntervalChartLabel(interval),
         score: bucket.planned > 0 ? Math.round((bucket.completed / bucket.planned) * 100) : 0,
       };
     });
@@ -516,8 +545,8 @@ export default function ReviewPage() {
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">
             {isUk
-              ? 'Додавай тему, а система автоматично поставить повторення на 1, 3, 7, 14 і 28 день.'
-              : 'Add a topic and get automatic reviews for day 1, 3, 7, 14, and 28.'}
+              ? 'Додавай тему, а система автоматично поставить повторення: у день вивчення, через 3 дні, 1 тиждень, 2 тижні, 1 місяць і 2 місяці.'
+              : 'Add a topic and get automatic reviews: on study day, after 3 days, 1 week, 2 weeks, 1 month, and 2 months.'}
           </p>
           {loading ? (
             <p className="text-sm text-slate-500 mt-1">{isUk ? 'Синхронізація даних...' : 'Syncing data...'}</p>
