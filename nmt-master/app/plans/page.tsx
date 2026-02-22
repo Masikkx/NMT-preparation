@@ -15,6 +15,19 @@ type DailyPlanItem = {
   createdAt: string;
 };
 
+type CalendarEvent = {
+  item: DailyPlanItem;
+  startMin: number;
+  endMin: number;
+  col: number;
+  totalCols: number;
+};
+
+const TIME_META_RE = /^\[time:(\d{2}:\d{2})-(\d{2}:\d{2})\]\s*/i;
+const CALENDAR_START_MIN = 6 * 60;
+const CALENDAR_END_MIN = 22 * 60;
+const CALENDAR_HEIGHT = CALENDAR_END_MIN - CALENDAR_START_MIN;
+
 const toYmd = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -40,6 +53,74 @@ const getWeekStartYmd = (value: string): string => {
   return toYmd(date);
 };
 
+const parseHm = (value: string): number | null => {
+  const [hRaw, mRaw] = value.split(':');
+  const h = Number(hRaw);
+  const m = Number(mRaw);
+  if (!Number.isInteger(h) || !Number.isInteger(m)) return null;
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+};
+
+const toHm = (minutes: number): string => {
+  const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const mm = String(minutes % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
+
+const parseTaskTime = (note?: string | null): { startMin: number | null; endMin: number | null } => {
+  const source = (note || '').trim();
+  const match = source.match(TIME_META_RE);
+  if (!match) return { startMin: null, endMin: null };
+  const startMin = parseHm(match[1]);
+  const endMin = parseHm(match[2]);
+  if (startMin === null || endMin === null || endMin <= startMin) return { startMin: null, endMin: null };
+  return { startMin, endMin };
+};
+
+const stripTimeMeta = (note?: string | null): string => (note || '').replace(TIME_META_RE, '').trim();
+
+const buildStoredNote = (note: string, useTime: boolean, startTime: string, endTime: string): string => {
+  const clean = note.trim();
+  if (!useTime) return clean;
+  const startMin = parseHm(startTime);
+  const endMin = parseHm(endTime);
+  if (startMin === null || endMin === null || endMin <= startMin) return clean;
+  const meta = `[time:${startTime}-${endTime}]`;
+  return clean ? `${meta} ${clean}` : meta;
+};
+
+const layoutEvents = (items: DailyPlanItem[]): CalendarEvent[] => {
+  const sorted = items
+    .map((item, idx) => {
+      const parsed = parseTaskTime(item.note);
+      const fallbackStart = 8 * 60 + idx * 70;
+      const startMin = parsed.startMin ?? fallbackStart;
+      const endMin = parsed.endMin ?? Math.min(CALENDAR_END_MIN, startMin + 60);
+      return {
+        item,
+        startMin: Math.max(CALENDAR_START_MIN, startMin),
+        endMin: Math.min(CALENDAR_END_MIN, Math.max(startMin + 30, endMin)),
+      };
+    })
+    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+
+  const colEnds: number[] = [];
+  const withCols = sorted.map((event) => {
+    let col = colEnds.findIndex((end) => event.startMin >= end);
+    if (col === -1) {
+      col = colEnds.length;
+      colEnds.push(event.endMin);
+    } else {
+      colEnds[col] = event.endMin;
+    }
+    return { ...event, col };
+  });
+
+  const totalCols = Math.max(1, colEnds.length);
+  return withCols.map((event) => ({ ...event, totalCols }));
+};
+
 export default function PlansPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -50,6 +131,9 @@ export default function PlansPage() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
+  const [useTime, setUseTime] = useState(true);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('10:00');
   const [items, setItems] = useState<DailyPlanItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -112,6 +196,28 @@ export default function PlansPage() {
     return total > 0 ? Math.round((done / total) * 100) : 0;
   }, [weekData]);
 
+  const weekCalendarDays = useMemo(() => {
+    const weekStart = getWeekStartYmd(selectedDate);
+    const locale = isUk ? 'uk-UA' : 'en-US';
+    const weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+
+    return Array.from({ length: 7 }).map((_, idx) => {
+      const date = addDaysYmd(weekStart, idx);
+      const dayItems = items.filter((item) => item.date === date);
+      return {
+        date,
+        label: weekdayFmt.format(parseYmdLocal(date)),
+        dayNumber: date.slice(-2),
+        events: layoutEvents(dayItems),
+      };
+    });
+  }, [isUk, items, selectedDate]);
+
+  const hourTicks = useMemo(
+    () => Array.from({ length: (CALENDAR_END_MIN - CALENDAR_START_MIN) / 60 + 1 }).map((_, idx) => CALENDAR_START_MIN + idx * 60),
+    [],
+  );
+
   const currentStreak = useMemo(() => {
     const byDate = new Map<string, { total: number; done: number }>();
     items.forEach((item) => {
@@ -135,6 +241,11 @@ export default function PlansPage() {
   const addPlan = async () => {
     const trimmed = title.trim();
     if (!trimmed) return;
+    if (useTime) {
+      const start = parseHm(startTime);
+      const end = parseHm(endTime);
+      if (start === null || end === null || end <= start) return;
+    }
 
     try {
       const res = await fetch('/api/plans', {
@@ -143,7 +254,7 @@ export default function PlansPage() {
         body: JSON.stringify({
           date: selectedDate,
           title: trimmed,
-          note: note.trim(),
+          note: buildStoredNote(note, useTime, startTime, endTime),
         }),
       });
       if (!res.ok) return;
@@ -216,11 +327,11 @@ export default function PlansPage() {
       <div className="max-w-7xl mx-auto px-4 py-10">
         <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold">{isUk ? 'Плани дня' : 'Daily Plans'}</h1>
+            <h1 className="text-3xl font-bold">{isUk ? 'Планувальник дня і тижня' : 'Day & Week Planner'}</h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
               {isUk
-                ? 'Став задачі на день, відмічай виконані, і дивись прогрес у Dashboard.'
-                : 'Set daily plans, mark completed tasks, and see progress on Dashboard.'}
+                ? 'Формат календаря: плануй задачі по днях і годинах, як у Google Calendar.'
+                : 'Calendar format: plan tasks by day and hour, similar to Google Calendar.'}
             </p>
           </div>
           <Link
@@ -286,6 +397,40 @@ export default function PlansPage() {
                   placeholder={isUk ? 'Напр.: Повторити теореми 7-10' : 'e.g. Review theorems 7-10'}
                   className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2"
                 />
+              </div>
+
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-slate-700 dark:text-slate-200">{isUk ? 'Поставити час' : 'Set time'}</span>
+                  <input
+                    type="checkbox"
+                    checked={useTime}
+                    onChange={(e) => setUseTime(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                </label>
+                {useTime ? (
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <div>
+                      <label className="text-xs text-slate-500">{isUk ? 'Початок' : 'Start'}</label>
+                      <input
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500">{isUk ? 'Кінець' : 'End'}</label>
+                      <input
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5"
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div>
@@ -356,7 +501,12 @@ export default function PlansPage() {
                         </button>
                         <div>
                           <p className={`font-medium ${item.done ? 'line-through text-slate-500' : ''}`}>{item.title}</p>
-                          {item.note ? <p className="text-xs text-slate-500 mt-1">{item.note}</p> : null}
+                          {parseTaskTime(item.note).startMin !== null ? (
+                            <p className="text-xs text-slate-500 mt-1">
+                              {toHm(parseTaskTime(item.note).startMin || 0)} - {toHm(parseTaskTime(item.note).endMin || 0)}
+                            </p>
+                          ) : null}
+                          {stripTimeMeta(item.note) ? <p className="text-xs text-slate-500 mt-1">{stripTimeMeta(item.note)}</p> : null}
                         </div>
                       </div>
                       <button
@@ -371,29 +521,108 @@ export default function PlansPage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
-              <h2 className="text-xl font-semibold mb-4">{isUk ? 'Цей тиждень' : 'This week'}</h2>
-              <div className="grid grid-cols-7 gap-2">
-                {weekData.map((day) => (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold">{isUk ? 'Календар тижня' : 'Weekly calendar'}</h2>
+                <div className="flex items-center gap-2">
                   <button
-                    key={day.key}
-                    onClick={() => setSelectedDate(day.key)}
-                    className={`rounded-lg border p-2 text-center ${
-                      day.key === selectedDate
-                        ? 'border-lime-500 bg-lime-50 dark:bg-lime-900/20'
-                        : 'border-slate-200 dark:border-slate-700'
-                    }`}
+                    onClick={() => setSelectedDate((prev) => addDaysYmd(prev, -7))}
+                    className="h-8 px-3 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
-                    <p className="text-xs text-slate-500 mb-2">{day.label}</p>
-                    <div className="mx-auto h-14 w-6 rounded bg-slate-100 dark:bg-slate-700 p-0.5 flex items-end">
-                      <div
-                        className={`w-full rounded-sm ${day.rate >= 80 ? 'bg-lime-500' : day.rate >= 40 ? 'bg-amber-400' : 'bg-slate-400'}`}
-                        style={{ height: `${Math.max(8, day.rate)}%` }}
-                      />
-                    </div>
-                    <p className="text-[11px] mt-2 font-semibold">{day.done}/{day.total}</p>
+                    ←
                   </button>
-                ))}
+                  <button
+                    onClick={() => setSelectedDate(today)}
+                    className="h-8 px-3 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    {isUk ? 'Сьогодні' : 'Today'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedDate((prev) => addDaysYmd(prev, 7))}
+                    className="h-8 px-3 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[920px]">
+                  <div className="grid grid-cols-[66px_repeat(7,minmax(0,1fr))] border-b border-slate-200 dark:border-slate-700">
+                    <div className="p-2 text-xs text-slate-500">{isUk ? 'Час' : 'Time'}</div>
+                    {weekCalendarDays.map((day) => (
+                      <button
+                        key={day.date}
+                        onClick={() => setSelectedDate(day.date)}
+                        className={`p-2 text-left border-l border-slate-200 dark:border-slate-700 ${
+                          day.date === selectedDate ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                      >
+                        <p className="text-[11px] uppercase tracking-wide text-slate-500">{day.label}</p>
+                        <p className="text-xl font-semibold">{day.dayNumber}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-[66px_repeat(7,minmax(0,1fr))]">
+                    <div className="relative" style={{ height: CALENDAR_HEIGHT }}>
+                      {hourTicks.map((tick) => (
+                        <div
+                          key={tick}
+                          className="absolute left-0 right-0 -translate-y-1/2 text-[11px] text-slate-500 pr-2 text-right"
+                          style={{ top: tick - CALENDAR_START_MIN }}
+                        >
+                          {toHm(tick)}
+                        </div>
+                      ))}
+                    </div>
+
+                    {weekCalendarDays.map((day) => (
+                      <div
+                        key={day.date}
+                        className={`relative border-l border-slate-200 dark:border-slate-700 ${
+                          day.date === selectedDate ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
+                        }`}
+                        style={{ height: CALENDAR_HEIGHT }}
+                      >
+                        {hourTicks.map((tick) => (
+                          <div
+                            key={tick}
+                            className="absolute left-0 right-0 border-t border-slate-100 dark:border-slate-800"
+                            style={{ top: tick - CALENDAR_START_MIN }}
+                          />
+                        ))}
+
+                        {day.events.map((event) => {
+                          const width = 100 / event.totalCols;
+                          return (
+                            <div
+                              key={event.item.id}
+                              className={`absolute rounded-md border px-2 py-1 shadow-sm ${
+                                event.item.done
+                                  ? 'bg-emerald-100 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700'
+                                  : 'bg-blue-100 border-blue-300 dark:bg-blue-900/35 dark:border-blue-700'
+                              }`}
+                              style={{
+                                top: event.startMin - CALENDAR_START_MIN + 1,
+                                height: Math.max(28, event.endMin - event.startMin - 2),
+                                left: `calc(${event.col * width}% + 2px)`,
+                                width: `calc(${width}% - 4px)`,
+                              }}
+                              title={stripTimeMeta(event.item.note)}
+                            >
+                              <button onClick={() => toggleDone(event.item.id)} className="text-[10px] font-semibold hover:underline">
+                                {event.item.done ? (isUk ? 'Виконано' : 'Done') : (isUk ? 'В роботі' : 'In progress')}
+                              </button>
+                              <p className={`text-[11px] leading-4 ${event.item.done ? 'line-through' : ''}`}>{event.item.title}</p>
+                              <p className="text-[10px]">{toHm(event.startMin)} - {toHm(event.endMin)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
