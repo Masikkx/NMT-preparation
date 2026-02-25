@@ -53,6 +53,23 @@ type SubjectStats = {
   streakDays: number;
 };
 
+type DailyReportSetting = {
+  targetEmail: string;
+  enabled: boolean;
+  sendHour: number;
+  timeZone: string;
+  lastSentDate: string | null;
+};
+
+type DailyReportLog = {
+  id: string;
+  targetEmail: string;
+  reportDate: string;
+  status: string;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
 const REVIEW_INTERVALS = [0, 3, 7, 14, 30, 60] as const;
 
 const SUBJECTS = [
@@ -171,6 +188,11 @@ export default function ReviewPage() {
   const [selectedDate, setSelectedDate] = useState(toYmd(new Date()));
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [savingItemId, setSavingItemId] = useState<string | null>(null);
+  const [dailyReportSetting, setDailyReportSetting] = useState<DailyReportSetting | null>(null);
+  const [dailyReportLogs, setDailyReportLogs] = useState<DailyReportLog[]>([]);
+  const [dailyReportSaving, setDailyReportSaving] = useState(false);
+  const [dailyReportSending, setDailyReportSending] = useState(false);
+  const [dailyReportMessage, setDailyReportMessage] = useState('');
   const [calendarCursor, setCalendarCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -207,10 +229,27 @@ export default function ReviewPage() {
     }
   }, []);
 
+  const loadDailyReportData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/reports/daily-settings', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.setting) {
+        setDailyReportSetting(data.setting);
+      }
+      if (Array.isArray(data.logs)) {
+        setDailyReportLogs(data.logs);
+      }
+    } catch (error) {
+      console.error('Load daily report settings error:', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     loadReviewData().catch(() => {});
-  }, [loadReviewData, user]);
+    loadDailyReportData().catch(() => {});
+  }, [loadDailyReportData, loadReviewData, user]);
 
   const allSubjects = useMemo(() => {
     const merged = [...SUBJECTS, ...items.map((item) => item.subject)];
@@ -562,6 +601,58 @@ export default function ReviewPage() {
 
   const onDragEndItem = () => {
     setDraggingItemId(null);
+  };
+
+  const saveDailyReportSettings = async () => {
+    if (!dailyReportSetting) return;
+    setDailyReportSaving(true);
+    setDailyReportMessage('');
+    try {
+      const res = await fetch('/api/reports/daily-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetEmail: dailyReportSetting.targetEmail,
+          enabled: dailyReportSetting.enabled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDailyReportMessage(data.error || (isUk ? 'Не вдалося зберегти налаштування.' : 'Failed to save settings.'));
+        return;
+      }
+      setDailyReportSetting({
+        targetEmail: data.setting.targetEmail,
+        enabled: data.setting.enabled,
+        sendHour: data.setting.sendHour,
+        timeZone: data.setting.timeZone,
+        lastSentDate: data.setting.lastSentDate || null,
+      });
+      setDailyReportMessage(isUk ? 'Налаштування збережено.' : 'Settings saved.');
+    } catch {
+      setDailyReportMessage(isUk ? 'Помилка збереження налаштувань.' : 'Settings save error.');
+    } finally {
+      setDailyReportSaving(false);
+    }
+  };
+
+  const sendDailyReportNow = async () => {
+    setDailyReportSending(true);
+    setDailyReportMessage('');
+    try {
+      const res = await fetch('/api/reports/daily-settings/send-now', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setDailyReportMessage(data.error || (isUk ? 'Не вдалося відправити звіт.' : 'Failed to send report.'));
+        return;
+      }
+      setDailyReportMessage(isUk ? 'Звіт успішно відправлено.' : 'Report sent successfully.');
+      await loadDailyReportData();
+    } catch {
+      setDailyReportMessage(isUk ? 'Помилка відправки звіту.' : 'Report send error.');
+    } finally {
+      setDailyReportSending(false);
+    }
   };
 
   const handleAdd = async () => {
@@ -1233,6 +1324,135 @@ export default function ReviewPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">
+                {isUk ? 'Щоденний PDF-звіт на пошту' : 'Daily PDF report by email'}
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                {isUk
+                  ? 'Жорсткий режим: звіт відправляється щодня о 20:00 (Europe/Kyiv), навіть якщо за день не було активності.'
+                  : 'Hard mode: report is sent every day at 20:00 (Europe/Kyiv), even with zero activity.'}
+              </p>
+            </div>
+            {dailyReportSetting?.lastSentDate ? (
+              <span className="text-xs rounded-full px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 h-fit">
+                {isUk ? 'Остання відправка:' : 'Last sent:'} {dailyReportSetting.lastSentDate}
+              </span>
+            ) : null}
+          </div>
+
+          {!dailyReportSetting ? (
+            <p className="mt-4 text-sm text-slate-500">{isUk ? 'Завантаження налаштувань...' : 'Loading settings...'}</p>
+          ) : (
+            <>
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="lg:col-span-2">
+                  <label className="text-sm text-slate-600 dark:text-slate-300">
+                    {isUk ? 'Email учня для щоденного PDF' : 'Student email for daily PDF'}
+                  </label>
+                  <input
+                    type="email"
+                    value={dailyReportSetting.targetEmail}
+                    onChange={(e) =>
+                      setDailyReportSetting((prev) => (
+                        prev
+                          ? { ...prev, targetEmail: e.target.value }
+                          : prev
+                      ))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2"
+                    placeholder="student@email.com"
+                  />
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 flex items-center justify-between">
+                  <p className="text-sm">{isUk ? 'Увімкнути розсилку' : 'Enable sending'}</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDailyReportSetting((prev) => (
+                        prev
+                          ? { ...prev, enabled: !prev.enabled }
+                          : prev
+                      ))
+                    }
+                    className={`h-7 w-12 rounded-full p-1 transition ${
+                      dailyReportSetting.enabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                    aria-label="toggle-daily-report"
+                  >
+                    <span
+                      className={`block h-5 w-5 rounded-full bg-white transition transform ${
+                        dailyReportSetting.enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={saveDailyReportSettings}
+                  disabled={dailyReportSaving}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold"
+                >
+                  {dailyReportSaving
+                    ? (isUk ? 'Збереження...' : 'Saving...')
+                    : (isUk ? 'Зберегти налаштування' : 'Save settings')}
+                </button>
+                <button
+                  onClick={sendDailyReportNow}
+                  disabled={dailyReportSending}
+                  className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold"
+                >
+                  {dailyReportSending
+                    ? (isUk ? 'Відправляю...' : 'Sending...')
+                    : (isUk ? 'Надіслати тестовий звіт зараз' : 'Send test report now')}
+                </button>
+              </div>
+
+              {dailyReportMessage ? (
+                <p className="mt-3 text-sm text-slate-700 dark:text-slate-200">{dailyReportMessage}</p>
+              ) : null}
+
+              <div className="mt-5">
+                <h3 className="font-semibold mb-2">{isUk ? 'Журнал відправок' : 'Delivery log'}</h3>
+                {dailyReportLogs.length === 0 ? (
+                  <p className="text-sm text-slate-500">{isUk ? 'Поки що відправок не було.' : 'No deliveries yet.'}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dailyReportLogs.slice(0, 8).map((log) => (
+                      <div
+                        key={log.id}
+                        className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                      >
+                        <div className="text-sm">
+                          <p>
+                            <strong>{log.reportDate}</strong> · {log.targetEmail}
+                          </p>
+                          {log.errorMessage ? (
+                            <p className="text-xs text-rose-600 dark:text-rose-300">{log.errorMessage}</p>
+                          ) : null}
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          log.status === 'sent'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                            : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'
+                        }`}>
+                          {log.status === 'sent'
+                            ? (isUk ? 'Відправлено' : 'Sent')
+                            : (isUk ? 'Помилка' : 'Failed')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">

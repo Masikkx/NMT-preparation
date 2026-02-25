@@ -29,6 +29,8 @@ model User {
   dailyPlanTasks DailyPlanTask[]
   reviewPlanItems ReviewPlanItem[]
   reviewCompletions ReviewCompletion[]
+  dailyReportSetting DailyReportSetting?
+  dailyReportLogs DailyReportLog[]
 
   @@map("users")
 }
@@ -79,6 +81,37 @@ model ReviewCompletion {
   @@unique([userId, reviewPlanItemId, reviewDate, intervalDays])
   @@index([userId, reviewDate])
   @@map("review_completions")
+}
+
+model DailyReportSetting {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  targetEmail  String
+  enabled      Boolean  @default(false)
+  sendHour     Int      @default(20)
+  timeZone     String   @default("Europe/Kyiv")
+  lastSentDate String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("daily_report_settings")
+}
+
+model DailyReportLog {
+  id          String   @id @default(cuid())
+  userId      String
+  targetEmail String
+  reportDate  String
+  status      String
+  errorMessage String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, reportDate])
+  @@map("daily_report_logs")
 }
 
 // Subject model (Ukrainian Language, Mathematics, etc.)
