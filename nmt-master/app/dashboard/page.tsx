@@ -415,13 +415,7 @@ export default function DashboardPage() {
         )}
 
         {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <Link
-            href="/plans"
-            className="block p-6 bg-gradient-to-br from-lime-600 to-lime-700 text-white rounded-lg hover:shadow-lg transition text-center font-semibold"
-          >
-            {lang === 'uk' ? '✅ Відкрити плани дня' : '✅ Open daily plans'}
-          </Link>
+        <div className="mt-8 grid grid-cols-1 gap-6">
           <Link
             href="/leaderboard"
             className="block p-6 bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-lg hover:shadow-lg transition text-center font-semibold"
