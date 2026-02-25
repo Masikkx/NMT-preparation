@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
@@ -129,6 +129,16 @@ const getIntervalChartLabel = (days: number): string => {
   return `${days}d`;
 };
 
+const getIntervalColumnLabel = (days: number, lang: 'uk' | 'en'): string => {
+  if (days === 0) return lang === 'uk' ? 'У день вивчення' : 'Study day';
+  if (days === 3) return lang === 'uk' ? 'Через 3 дні' : 'After 3 days';
+  if (days === 7) return lang === 'uk' ? 'Через 7 днів' : 'After 7 days';
+  if (days === 14) return lang === 'uk' ? 'Через 14 днів' : 'After 14 days';
+  if (days === 30) return lang === 'uk' ? 'Через 1 місяць' : 'After 1 month';
+  if (days === 60) return lang === 'uk' ? 'Через 2 місяці' : 'After 2 months';
+  return lang === 'uk' ? `Через ${days} днів` : `After ${days} days`;
+};
+
 const getEventKey = (event: Pick<ReviewEvent, 'itemId' | 'reviewDate' | 'intervalDays'>): string =>
   `${event.itemId}__${event.reviewDate}__${event.intervalDays}`;
 
@@ -155,9 +165,12 @@ export default function ReviewPage() {
 
   const [items, setItems] = useState<StudyItem[]>([]);
   const [subject, setSubject] = useState(SUBJECTS[0]);
+  const [tableSubject, setTableSubject] = useState(SUBJECTS[0]);
   const [topic, setTopic] = useState('');
   const [studiedDate, setStudiedDate] = useState(toYmd(new Date()));
   const [selectedDate, setSelectedDate] = useState(toYmd(new Date()));
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [savingItemId, setSavingItemId] = useState<string | null>(null);
   const [calendarCursor, setCalendarCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -199,6 +212,20 @@ export default function ReviewPage() {
     loadReviewData().catch(() => {});
   }, [loadReviewData, user]);
 
+  const allSubjects = useMemo(() => {
+    const merged = [...SUBJECTS, ...items.map((item) => item.subject)];
+    return Array.from(new Set(merged));
+  }, [items]);
+
+  useEffect(() => {
+    if (!allSubjects.includes(subject)) {
+      setSubject(allSubjects[0] || SUBJECTS[0]);
+    }
+    if (!allSubjects.includes(tableSubject)) {
+      setTableSubject(allSubjects[0] || SUBJECTS[0]);
+    }
+  }, [allSubjects, subject, tableSubject]);
+
   const reviewEvents = useMemo<ReviewEvent[]>(() => {
     return items.flatMap((item) =>
       REVIEW_INTERVALS.map((intervalDays) => ({
@@ -225,6 +252,13 @@ export default function ReviewPage() {
 
   const todayEvents = eventsByDate.get(today) || [];
   const selectedDateEvents = eventsByDate.get(selectedDate) || [];
+  const tableItems = useMemo(
+    () =>
+      items
+        .filter((item) => item.subject === tableSubject)
+        .sort((a, b) => a.studiedDate.localeCompare(b.studiedDate) || a.topic.localeCompare(b.topic)),
+    [items, tableSubject],
+  );
 
   const subjectStats = useMemo<SubjectStats[]>(() => {
     if (reviewEvents.length === 0) return [];
@@ -419,6 +453,36 @@ export default function ReviewPage() {
     return chartData;
   }, [reviewEvents, reviewStatus, today]);
 
+  const subjectMatrixStats = useMemo(() => {
+    const planned = tableItems.length * REVIEW_INTERVALS.length;
+    let completed = 0;
+    let dueNow = 0;
+
+    for (const item of tableItems) {
+      for (const interval of REVIEW_INTERVALS) {
+        const reviewDate = getReviewDateByInterval(item.studiedDate, interval);
+        const key = `${item.id}__${reviewDate}__${interval}`;
+        if (reviewStatus[key]) {
+          completed += 1;
+        } else if (reviewDate <= today) {
+          dueNow += 1;
+        }
+      }
+    }
+
+    return {
+      planned,
+      completed,
+      dueNow,
+      completionRate: planned > 0 ? Math.round((completed / planned) * 100) : 0,
+    };
+  }, [reviewStatus, tableItems, today]);
+
+  const studyDateDropSlots = useMemo(
+    () => Array.from({ length: 21 }, (_, idx) => addDaysYmd(today, idx - 6)),
+    [today],
+  );
+
   const toggleReviewed = async (event: ReviewEvent) => {
     const key = getEventKey(event);
     const nextCompleted = !reviewStatus[key];
@@ -449,6 +513,55 @@ export default function ReviewPage() {
         [key]: !nextCompleted,
       }));
     }
+  };
+
+  const updateStudiedDate = async (id: string, nextDate: string) => {
+    const prevItems = items;
+    const current = prevItems.find((item) => item.id === id);
+    if (!current || current.studiedDate === nextDate) {
+      return;
+    }
+
+    setSavingItemId(id);
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, studiedDate: nextDate } : item)));
+
+    try {
+      const res = await fetch(`/api/review/items/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studiedDate: nextDate }),
+      });
+      if (!res.ok) {
+        setItems(prevItems);
+        return;
+      }
+      const data = await res.json();
+      if (data.item) {
+        setItems((prev) => prev.map((item) => (item.id === id ? data.item : item)));
+      }
+    } catch {
+      setItems(prevItems);
+    } finally {
+      setSavingItemId((value) => (value === id ? null : value));
+    }
+  };
+
+  const onDragStartItem = (e: DragEvent<HTMLDivElement>, itemId: string) => {
+    setDraggingItemId(itemId);
+    e.dataTransfer.setData('text/review-item-id', itemId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDropToStudyDate = (e: DragEvent<HTMLButtonElement>, targetDate: string) => {
+    e.preventDefault();
+    const itemId = e.dataTransfer.getData('text/review-item-id') || draggingItemId;
+    setDraggingItemId(null);
+    if (!itemId) return;
+    updateStudiedDate(itemId, targetDate).catch(() => {});
+  };
+
+  const onDragEndItem = () => {
+    setDraggingItemId(null);
   };
 
   const handleAdd = async () => {
@@ -568,7 +681,7 @@ export default function ReviewPage() {
                   onChange={(e) => setSubject(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2"
                 >
-                  {SUBJECTS.map((subj) => (
+                  {allSubjects.map((subj) => (
                     <option key={subj} value={subj}>
                       {subj}
                     </option>
@@ -750,6 +863,168 @@ export default function ReviewPage() {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-amber-200/70 dark:border-amber-900/50 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-6 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                {isUk ? 'Матриця повторень по предмету' : 'Subject Review Matrix'}
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                {isUk
+                  ? 'Обери предмет, переглядай усі теми в таблиці та відмічай повтори по інтервалах D0/D3/D7/D14/M1/M2.'
+                  : 'Pick a subject, view all topics in a matrix, and track D0/D3/D7/D14/M1/M2 spaced repetitions.'}
+              </p>
+            </div>
+            <div className="w-full lg:w-72">
+              <label className="text-sm text-slate-600 dark:text-slate-300">{isUk ? 'Предмет для таблиці' : 'Subject for matrix'}</label>
+              <select
+                value={tableSubject}
+                onChange={(e) => setTableSubject(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2"
+              >
+                {allSubjects.map((subj) => (
+                  <option key={subj} value={subj}>
+                    {subj}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Тем у предметі' : 'Topics in subject'}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{tableItems.length}</p>
+            </div>
+            <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Виконання матриці' : 'Matrix completion'}</p>
+              <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{subjectMatrixStats.completionRate}%</p>
+            </div>
+            <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Виконано комірок' : 'Completed cells'}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{subjectMatrixStats.completed}</p>
+            </div>
+            <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Прострочено зараз' : 'Due right now'}</p>
+              <p className="text-2xl font-bold text-rose-700 dark:text-rose-400">{subjectMatrixStats.dueNow}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white/85 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 mb-4">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
+              {isUk ? 'Перетягни тему на дату, щоб змінити "дату вивчення"' : 'Drag a topic to a date to move its study date'}
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {studyDateDropSlots.map((dateValue) => {
+                const isTodaySlot = dateValue === today;
+                return (
+                  <button
+                    key={dateValue}
+                    type="button"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => onDropToStudyDate(e, dateValue)}
+                    className={`shrink-0 rounded-lg border px-2.5 py-2 text-xs transition ${
+                      isTodaySlot
+                        ? 'border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-900/20 dark:text-amber-300'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
+                    } ${draggingItemId ? 'ring-1 ring-amber-300 dark:ring-amber-800' : ''}`}
+                    title={isUk ? 'Скинь тему на цю дату' : 'Drop topic here'}
+                  >
+                    <p className="font-semibold">{dateValue.slice(5)}</p>
+                    <p className="text-[11px] opacity-75">
+                      {parseYmdLocal(dateValue).toLocaleDateString(isUk ? 'uk-UA' : 'en-US', { weekday: 'short' })}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {tableItems.length === 0 ? (
+            <p className="text-slate-500">{isUk ? 'Для цього предмета поки немає тем.' : 'No topics for this subject yet.'}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900">
+              <table className="min-w-[980px] w-full text-sm">
+                <thead className="bg-slate-100/80 dark:bg-slate-800/80">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">{isUk ? 'Тема' : 'Topic'}</th>
+                    <th className="text-left px-3 py-2 font-semibold">{isUk ? 'Дата вивчення' : 'Study date'}</th>
+                    {REVIEW_INTERVALS.map((interval) => (
+                      <th key={interval} className="text-center px-2 py-2 font-semibold min-w-[120px]">
+                        <p>{getIntervalChartLabel(interval)}</p>
+                        <p className="text-[11px] font-normal text-slate-500">{getIntervalColumnLabel(interval, lang)}</p>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableItems.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-200 dark:border-slate-700 hover:bg-amber-50/40 dark:hover:bg-slate-800/60">
+                      <td className="px-3 py-2 align-top">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">{item.topic}</p>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <div
+                          draggable
+                          onDragStart={(e) => onDragStartItem(e, item.id)}
+                          onDragEnd={onDragEndItem}
+                          className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-100/80 dark:border-amber-800 dark:bg-amber-900/25 px-2 py-1 cursor-grab active:cursor-grabbing"
+                          title={isUk ? 'Перетягни на дату зверху' : 'Drag to date slots above'}
+                        >
+                          <span className="text-xs font-semibold">::</span>
+                          <input
+                            type="date"
+                            value={item.studiedDate}
+                            onChange={(e) => updateStudiedDate(item.id, e.target.value)}
+                            className="bg-transparent text-sm outline-none"
+                          />
+                        </div>
+                        {savingItemId === item.id ? (
+                          <p className="text-[11px] text-slate-500 mt-1">{isUk ? 'Зберігаю...' : 'Saving...'}</p>
+                        ) : null}
+                      </td>
+                      {REVIEW_INTERVALS.map((interval) => {
+                        const event: ReviewEvent = {
+                          itemId: item.id,
+                          subject: item.subject,
+                          topic: item.topic,
+                          reviewDate: getReviewDateByInterval(item.studiedDate, interval),
+                          intervalDays: interval,
+                        };
+                        const key = getEventKey(event);
+                        const done = Boolean(reviewStatus[key]);
+                        const overdue = !done && event.reviewDate < today;
+                        const isDueToday = !done && event.reviewDate === today;
+
+                        return (
+                          <td key={`${item.id}-${interval}`} className="px-2 py-2 text-center">
+                            <button
+                              onClick={() => toggleReviewed(event)}
+                              className={`mx-auto flex h-9 w-9 items-center justify-center rounded-md border text-lg font-bold transition ${
+                                done
+                                  ? 'border-emerald-700 bg-emerald-600 text-white'
+                                  : isDueToday
+                                    ? 'border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                    : overdue
+                                      ? 'border-rose-500 bg-rose-100 text-rose-700 dark:bg-rose-900/25 dark:text-rose-300'
+                                      : 'border-slate-300 bg-white text-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500 dark:hover:bg-slate-800'
+                              }`}
+                              title={`${event.reviewDate} · ${getIntervalLabel(interval, lang)}`}
+                            >
+                              {done ? '✓' : ''}
+                            </button>
+                            <p className="mt-1 text-[10px] text-slate-500">{event.reviewDate.slice(5)}</p>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="mt-8 rounded-2xl border border-lime-200/70 dark:border-lime-900/50 bg-gradient-to-br from-lime-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-6 shadow-sm">
