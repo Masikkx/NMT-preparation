@@ -651,9 +651,9 @@ export default function ReviewPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
-      <div className="max-w-7xl mx-auto px-4 py-10">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-10 pb-24 sm:pb-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-2xl sm:text-3xl font-bold">
             {isUk ? 'План повторень' : 'Review Planner'}
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">
@@ -667,7 +667,7 @@ export default function ReviewPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+          <div className="lg:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
             <h2 className="text-xl font-semibold mb-4">
               {isUk ? 'Додати тему' : 'Add Topic'}
             </h2>
@@ -723,7 +723,7 @@ export default function ReviewPage() {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
               <h2 className="text-xl font-semibold mb-3">
                 {isUk ? 'Що повторити сьогодні' : 'Today Reviews'}
               </h2>
@@ -734,7 +734,7 @@ export default function ReviewPage() {
                   {todayEvents.map((event, idx) => (
                     <div
                       key={`${event.itemId}-${event.intervalDays}-${idx}`}
-                      className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 flex items-center justify-between gap-3"
+                      className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                     >
                       <div>
                         <p className="font-medium">{event.subject}: {event.topic}</p>
@@ -760,8 +760,8 @@ export default function ReviewPage() {
               )}
             </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <h2 className="text-xl font-semibold">{isUk ? 'Календар повторень' : 'Review Calendar'}</h2>
                 <div className="flex items-center gap-2">
                   <button
@@ -770,7 +770,7 @@ export default function ReviewPage() {
                       prev.setMonth(prev.getMonth() - 1);
                       setCalendarCursor(prev);
                     }}
-                    className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600"
+                    className="h-9 w-9 rounded border border-slate-300 dark:border-slate-600"
                   >
                     ←
                   </button>
@@ -781,7 +781,7 @@ export default function ReviewPage() {
                       next.setMonth(next.getMonth() + 1);
                       setCalendarCursor(next);
                     }}
-                    className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600"
+                    className="h-9 w-9 rounded border border-slate-300 dark:border-slate-600"
                   >
                     →
                   </button>
@@ -825,7 +825,7 @@ export default function ReviewPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
               <h2 className="text-xl font-semibold mb-3">
                 {isUk ? 'Повторення на обрану дату' : 'Reviews for Selected Date'}
               </h2>
@@ -837,7 +837,7 @@ export default function ReviewPage() {
                   {selectedDateEvents.map((event, idx) => (
                     <div
                       key={`${event.itemId}-${event.intervalDays}-${idx}`}
-                      className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 flex items-center justify-between gap-3"
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                     >
                       <div>
                         <p className="font-medium">{event.subject}: {event.topic}</p>
@@ -865,10 +865,10 @@ export default function ReviewPage() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-amber-200/70 dark:border-amber-900/50 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-6 shadow-sm">
+        <div className="mt-8 rounded-2xl border border-amber-200/70 dark:border-amber-900/50 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 {isUk ? 'Матриця повторень по предмету' : 'Subject Review Matrix'}
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
@@ -893,22 +893,22 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
             <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Тем у предметі' : 'Topics in subject'}</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{tableItems.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{tableItems.length}</p>
             </div>
             <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Виконання матриці' : 'Matrix completion'}</p>
-              <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{subjectMatrixStats.completionRate}%</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-700 dark:text-amber-400">{subjectMatrixStats.completionRate}%</p>
             </div>
             <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Виконано комірок' : 'Completed cells'}</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{subjectMatrixStats.completed}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{subjectMatrixStats.completed}</p>
             </div>
             <div className="rounded-xl bg-white/90 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Прострочено зараз' : 'Due right now'}</p>
-              <p className="text-2xl font-bold text-rose-700 dark:text-rose-400">{subjectMatrixStats.dueNow}</p>
+              <p className="text-xl sm:text-2xl font-bold text-rose-700 dark:text-rose-400">{subjectMatrixStats.dueNow}</p>
             </div>
           </div>
 
@@ -945,7 +945,65 @@ export default function ReviewPage() {
           {tableItems.length === 0 ? (
             <p className="text-slate-500">{isUk ? 'Для цього предмета поки немає тем.' : 'No topics for this subject yet.'}</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900">
+            <>
+              <div className="md:hidden space-y-3">
+                {tableItems.map((item) => (
+                  <div key={`mobile-${item.id}`} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900 p-3">
+                    <p className="font-medium text-slate-900 dark:text-slate-100 mb-2">{item.topic}</p>
+                    <div
+                      draggable
+                      onDragStart={(e) => onDragStartItem(e, item.id)}
+                      onDragEnd={onDragEndItem}
+                      className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-100/80 dark:border-amber-800 dark:bg-amber-900/25 px-2 py-1 cursor-grab active:cursor-grabbing mb-3"
+                    >
+                      <span className="text-xs font-semibold">::</span>
+                      <input
+                        type="date"
+                        value={item.studiedDate}
+                        onChange={(e) => updateStudiedDate(item.id, e.target.value)}
+                        className="bg-transparent text-sm outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {REVIEW_INTERVALS.map((interval) => {
+                        const event: ReviewEvent = {
+                          itemId: item.id,
+                          subject: item.subject,
+                          topic: item.topic,
+                          reviewDate: getReviewDateByInterval(item.studiedDate, interval),
+                          intervalDays: interval,
+                        };
+                        const key = getEventKey(event);
+                        const done = Boolean(reviewStatus[key]);
+                        const overdue = !done && event.reviewDate < today;
+                        const isDueToday = !done && event.reviewDate === today;
+                        return (
+                          <button
+                            key={`mobile-${item.id}-${interval}`}
+                            onClick={() => toggleReviewed(event)}
+                            className={`rounded-lg border px-2 py-2 text-xs ${
+                              done
+                                ? 'border-emerald-700 bg-emerald-600 text-white'
+                                : isDueToday
+                                  ? 'border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                  : overdue
+                                    ? 'border-rose-500 bg-rose-100 text-rose-700 dark:bg-rose-900/25 dark:text-rose-300'
+                                    : 'border-slate-300 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300'
+                            }`}
+                            title={`${event.reviewDate} · ${getIntervalLabel(interval, lang)}`}
+                          >
+                            <p className="font-semibold">{getIntervalChartLabel(interval)}</p>
+                            <p className="opacity-80">{event.reviewDate.slice(5)}</p>
+                            <p className="mt-0.5">{done ? (isUk ? 'Готово' : 'Done') : (isUk ? 'Заплан.' : 'Planned')}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900">
               <table className="min-w-[980px] w-full text-sm">
                 <thead className="bg-slate-100/80 dark:bg-slate-800/80">
                   <tr>
@@ -1023,14 +1081,15 @@ export default function ReviewPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
 
-        <div className="mt-8 rounded-2xl border border-lime-200/70 dark:border-lime-900/50 bg-gradient-to-br from-lime-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-6 shadow-sm">
+        <div className="mt-8 rounded-2xl border border-lime-200/70 dark:border-lime-900/50 bg-gradient-to-br from-lime-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 {isUk ? 'Momentum Dashboard' : 'Momentum Dashboard'}
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
@@ -1044,22 +1103,22 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-5">
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Загальний прогрес' : 'Overall progress'}</p>
-              <p className="text-2xl font-bold text-lime-700 dark:text-lime-400">{dashboardMetrics.completionRate}%</p>
+              <p className="text-xl sm:text-2xl font-bold text-lime-700 dark:text-lime-400">{dashboardMetrics.completionRate}%</p>
             </div>
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Виконано повторів' : 'Completed reviews'}</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.completed}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.completed}</p>
             </div>
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Макс. серія' : 'Longest streak'}</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.longestStreak}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.longestStreak}</p>
             </div>
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">{isUk ? 'Активні предмети' : 'Active subjects'}</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.activeSubjects}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardMetrics.activeSubjects}</p>
             </div>
           </div>
 
@@ -1176,7 +1235,7 @@ export default function ReviewPage() {
           </div>
         </div>
 
-        <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+        <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
           <h2 className="text-xl font-semibold mb-3">
             {isUk ? 'Додані теми' : 'Added Topics'}
           </h2>
@@ -1207,7 +1266,7 @@ export default function ReviewPage() {
           )}
         </div>
 
-        <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+        <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
           <h2 className="text-xl font-semibold mb-3">
             {isUk ? 'Статистика по предметах' : 'Subject Statistics'}
           </h2>
