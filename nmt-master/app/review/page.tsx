@@ -193,6 +193,7 @@ export default function ReviewPage() {
   const [dailyReportSaving, setDailyReportSaving] = useState(false);
   const [dailyReportSending, setDailyReportSending] = useState(false);
   const [dailyReportMessage, setDailyReportMessage] = useState('');
+  const [topicsExpanded, setTopicsExpanded] = useState(false);
   const [calendarCursor, setCalendarCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1456,34 +1457,49 @@ export default function ReviewPage() {
         </div>
 
         <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
-          <h2 className="text-xl font-semibold mb-3">
-            {isUk ? 'Додані теми' : 'Added Topics'}
-          </h2>
-          {items.length === 0 ? (
-            <p className="text-slate-500">{isUk ? 'Поки що нічого не додано.' : 'Nothing added yet.'}</p>
-          ) : (
-            <div className="space-y-2">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 flex items-center justify-between gap-3"
-                >
-                  <div>
-                    <p className="font-medium">{item.subject}: {item.topic}</p>
-                    <p className="text-xs text-slate-500">
-                      {isUk ? 'Вивчено:' : 'Studied:'} {item.studiedDate}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="text-sm px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    {isUk ? 'Видалити' : 'Delete'}
-                  </button>
-                </div>
-              ))}
+          <button
+            type="button"
+            onClick={() => setTopicsExpanded((prev) => !prev)}
+            className="w-full flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+          >
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold text-left">{isUk ? 'Додані теми' : 'Added Topics'}</h2>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                {items.length}
+              </span>
             </div>
-          )}
+            <span className={`text-lg transition-transform ${topicsExpanded ? 'rotate-180' : ''}`}>⌄</span>
+          </button>
+
+          {topicsExpanded ? (
+            <div className="mt-3">
+              {items.length === 0 ? (
+                <p className="text-slate-500">{isUk ? 'Поки що нічого не додано.' : 'Nothing added yet.'}</p>
+              ) : (
+                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                    >
+                      <div>
+                        <p className="font-medium">{item.subject}: {item.topic}</p>
+                        <p className="text-xs text-slate-500">
+                          {isUk ? 'Вивчено:' : 'Studied:'} {item.studiedDate}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="text-sm px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {isUk ? 'Видалити' : 'Delete'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-sm">
