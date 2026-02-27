@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
+import { compareHistoryTopicCodes } from '@/lib/history-topic-sort';
 
 interface Subject {
   id: string;
@@ -37,7 +38,15 @@ interface AttemptItem {
 }
 
 type TabKey = 'topic' | 'past_nmt' | 'unfinished';
-type SortKey = 'newest' | 'oldest' | 'title_az' | 'title_za' | 'questions_desc' | 'questions_asc';
+type SortKey =
+  | 'newest'
+  | 'oldest'
+  | 'title_az'
+  | 'title_za'
+  | 'questions_desc'
+  | 'questions_asc'
+  | 'topic_asc'
+  | 'topic_desc';
 
 export default function SubjectPage() {
   const params = useParams();
@@ -125,6 +134,10 @@ export default function SubjectPage() {
         return list.sort((a, b) => (b.questionCount || 0) - (a.questionCount || 0));
       case 'questions_asc':
         return list.sort((a, b) => (a.questionCount || 0) - (b.questionCount || 0));
+      case 'topic_asc':
+        return list.sort((a, b) => compareHistoryTopicCodes(a.historyTopicCode, b.historyTopicCode, 'asc'));
+      case 'topic_desc':
+        return list.sort((a, b) => compareHistoryTopicCodes(a.historyTopicCode, b.historyTopicCode, 'desc'));
       case 'newest':
       default:
         return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -199,6 +212,12 @@ export default function SubjectPage() {
               <option value="title_za">{t('subjectPage.sortTitleZa')}</option>
               <option value="questions_desc">{t('subjectPage.sortQuestionsDesc')}</option>
               <option value="questions_asc">{t('subjectPage.sortQuestionsAsc')}</option>
+              {slug === 'history-ukraine' && activeTab === 'topic' && (
+                <>
+                  <option value="topic_asc">Тема: 1 → 32</option>
+                  <option value="topic_desc">Тема: 32 → 1</option>
+                </>
+              )}
             </select>
           </div>
         )}

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth';
 import { useLanguageStore } from '@/store/language';
+import { compareHistoryTopicCodes, type TopicSortDirection } from '@/lib/history-topic-sort';
 
 interface Test {
   id: string;
@@ -63,6 +64,7 @@ export default function TestsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [mathTrackFilter, setMathTrackFilter] = useState('');
+  const [historyTopicSortDir, setHistoryTopicSortDir] = useState<TopicSortDirection>('asc');
   const [typeFilter, setTypeFilter] = useState(() => {
     if (typeof window === 'undefined') return '';
     return localStorage.getItem('preferred_test_type') || '';
@@ -123,12 +125,7 @@ export default function TestsPage() {
         let next = data as Test[];
         if (subjectId === 'history-ukraine' && typeFilter === 'topic') {
           next = [...next].sort((a, b) => {
-            const parse = (val?: string | null) => {
-              if (!val) return -Infinity;
-              const num = Number(String(val).replace(',', '.'));
-              return Number.isFinite(num) ? num : -Infinity;
-            };
-            return parse(b.historyTopicCode) - parse(a.historyTopicCode);
+            return compareHistoryTopicCodes(a.historyTopicCode, b.historyTopicCode, historyTopicSortDir);
           });
         }
         setTests(next);
@@ -139,6 +136,13 @@ export default function TestsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (subjectId !== 'history-ukraine' || typeFilter !== 'topic') return;
+    setTests((prev) =>
+      [...prev].sort((a, b) => compareHistoryTopicCodes(a.historyTopicCode, b.historyTopicCode, historyTopicSortDir)),
+    );
+  }, [historyTopicSortDir, subjectId, typeFilter]);
 
   const fetchPausedAttempts = async () => {
     try {
@@ -273,6 +277,19 @@ export default function TestsPage() {
                   <option value="">{t('tests.mathTrackAll')}</option>
                   <option value="algebra">{t('tests.mathTrackAlgebra')}</option>
                   <option value="geometry">{t('tests.mathTrackGeometry')}</option>
+                </select>
+              </div>
+            )}
+            {subjectId === 'history-ukraine' && typeFilter === 'topic' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Сортування тем</label>
+                <select
+                  value={historyTopicSortDir}
+                  onChange={(e) => setHistoryTopicSortDir(e.target.value as TopicSortDirection)}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700"
+                >
+                  <option value="asc">1 → 32</option>
+                  <option value="desc">32 → 1</option>
                 </select>
               </div>
             )}
