@@ -971,15 +971,6 @@ export default function TestPage() {
     });
   };
 
-
-  const getMatchingLists = (content: string) => {
-    const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
-    const left = lines.filter((l) => /^\d+\.\s/.test(l));
-    const right = lines.filter((l) => /^[А-ЯІЇЄҐ]\.\s/.test(l));
-    const prompt = lines.filter((l) => !/^\d+\.\s/.test(l) && !/^[А-ЯІЇЄҐ]\.\s/.test(l)).join(' ');
-    return { prompt, left, right };
-  };
-
   const parseInlineOptionsFromContent = (content: string) => {
     const lines = content
       .replace(/\r\n/g, '\n')
@@ -1031,7 +1022,6 @@ export default function TestPage() {
     const matchingContent = q.type === 'matching'
       ? (q.content || '').replace(/\[(?:image|img)\s*:\s*[^\]]+\]/gi, '')
       : q.content || '';
-    const parts = q.type === 'matching' ? getMatchingLists(matchingContent) : null;
     const inlineOptions = (q.type === 'single_choice' || q.type === 'multiple_answers')
       ? parseInlineOptionsFromContent(q.content || '')
       : { hasInline: false, options: [], prompt: q.content || '' };
@@ -1072,7 +1062,7 @@ export default function TestPage() {
                       style={{ width: block.width ? `${block.width}px` : undefined, maxWidth: '100%', height: 'auto' }}
                     />
                   ))}
-                <div>{renderRichText(parts?.prompt || matchingContent)}</div>
+                <div>{renderRichText(matchingContent)}</div>
               </div>
             ) : inlineOptions.hasInline ? (
               <div className="space-y-2">
@@ -1248,41 +1238,15 @@ export default function TestPage() {
 
           {q.type === 'matching' && (
             (() => {
-              const { left, right } = parts || { left: [], right: [] };
               const correctMatching = q.answers
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                 .map((a) => a.matchingPair ?? '') as string[];
-              const cols = right.length > 0 ? right : ['А.', 'Б.', 'В.', 'Г.', 'Д.'];
+              const filledMatching = correctMatching.filter((value) => String(value).trim() !== '').length;
               const rowCount = test.subject?.slug === 'mathematics'
-                ? Math.max(3, Math.min(4, correctMatching.length || left.length || 3))
+                ? (filledMatching >= 4 ? 4 : 3)
                 : 4;
-              const leftItems = (left.length > 0 ? left : ['1.', '2.', '3.', '4.']).slice(0, rowCount);
               return (
                 <div className="space-y-3">
-                  {(left.length > 0 || right.length > 0) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                        <p className="font-semibold mb-2">{rowCount === 3 ? '1–3' : '1–4'}</p>
-                        <div className="space-y-1">
-                          {leftItems.map((l, i) => (
-                            <div key={`left-${i}`} className="text-slate-700 dark:text-slate-300">
-                              {renderRichText(l)}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                        <p className="font-semibold mb-2">А–Д</p>
-                        <div className="space-y-1">
-                          {cols.map((r, i) => (
-                            <div key={`right-${i}`} className="text-slate-700 dark:text-slate-300">
-                              {renderRichText(r)}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   <div className={`grid grid-cols-6 gap-0 w-full max-w-[280px] sm:max-w-[340px] sm:w-72 sm:max-w-none border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden ${rowCount === 3 ? 'grid-rows-4 aspect-[6/4]' : 'grid-rows-5 aspect-[6/5]'}`}>
                     <div className="flex items-center justify-center text-sm font-semibold aspect-square sm:aspect-auto" />
                     {['А', 'Б', 'В', 'Г', 'Д'].map((c) => (

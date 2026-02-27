@@ -2,17 +2,13 @@ export type TopicSortDirection = 'asc' | 'desc';
 
 const normalizeTopicCode = (value?: string | null): number[] | null => {
   if (!value) return null;
-  const cleaned = String(value).trim().replace(',', '.');
+  const cleaned = String(value).trim();
   if (!cleaned) return null;
 
-  const parts = cleaned
-    .split('.')
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const numberGroups = cleaned.match(/\d+/g);
+  if (!numberGroups || numberGroups.length === 0) return null;
 
-  if (parts.length === 0) return null;
-
-  const nums = parts.map((part) => Number(part));
+  const nums = numberGroups.map((part) => Number(part));
   if (nums.some((num) => !Number.isFinite(num))) return null;
   return nums;
 };

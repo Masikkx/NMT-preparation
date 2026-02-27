@@ -283,25 +283,60 @@ export default function AdminEditTestPage() {
     return value;
   };
 
+  const normalizeQuestionTextForSave = (input: string) => {
+    const lines = input
+      .replace(/\r\n/g, '\n')
+      .replace(/\u00A0/g, ' ')
+      .split('\n')
+      .map((line) => line.replace(/[ \t]+/g, ' ').trim());
+
+    const isStructuredLine = (line: string) =>
+      /^(?:\d+\s*[.)]|[АБВГДЕЄA-G](?:[.):]|\s)|\[(?:image|img)\s*:|[-•*]\s+)/i.test(line);
+
+    const out: string[] = [];
+    let buffer = '';
+    const flush = () => {
+      if (!buffer) return;
+      out.push(buffer.trim());
+      buffer = '';
+    };
+
+    for (const line of lines) {
+      if (!line) {
+        flush();
+        continue;
+      }
+      if (isStructuredLine(line)) {
+        flush();
+        out.push(line);
+        continue;
+      }
+      buffer = buffer ? `${buffer} ${line}` : line;
+    }
+    flush();
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  };
+
   const normalizeQuestionForSave = (q: EditQuestion): EditQuestion => {
+    const normalizedText = normalizeQuestionTextForSave(q.text || '');
     if (q.type === 'single_choice') {
-      const imageMatch = q.text.match(/\[(?:image|img)\s*:\s*([^\]]+)\]/i);
+      const imageMatch = normalizedText.match(/\[(?:image|img)\s*:\s*([^\]]+)\]/i);
       const imageUrl = imageMatch ? imageMatch[1].trim() : q.imageUrl || '';
-      const inline = parseInlineOptionsFromText(q.text || '');
+      const inline = parseInlineOptionsFromText(normalizedText);
       const letters = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є'];
       const options = inline.hasInline
         ? inline.options.map((_, idx) => letters[idx] || String(idx + 1))
         : letters.slice(0, 4);
       let correctAnswer = typeof q.correctAnswer === 'number' ? q.correctAnswer : 0;
       if (correctAnswer >= options.length) correctAnswer = 0;
-      return { ...q, text: q.text, imageUrl, options, correctAnswer };
+      return { ...q, text: normalizedText, imageUrl, options, correctAnswer };
     }
     if (q.type === 'matching') {
       const subjectSlug = testRef.current?.subject?.slug || test?.subject?.slug || '';
       const correctAnswer = normalizeMatchingAnswerForSave(q.correctAnswer as string[] | undefined, subjectSlug);
-      return { ...q, correctAnswer };
+      return { ...q, text: normalizedText, correctAnswer };
     }
-    return q;
+    return { ...q, text: normalizedText };
   };
 
   const getMatchingRowCount = (subjectSlug: string, correctAnswer?: string[]) => {
