@@ -48,45 +48,73 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
-    const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2:3b';
+    const configuredBaseUrl = process.env.OLLAMA_BASE_URL?.trim();
+    const configuredModel = process.env.OLLAMA_MODEL?.trim();
+    const baseUrls = Array.from(
+      new Set(
+        [configuredBaseUrl, 'http://127.0.0.1:11434', 'http://localhost:11434', 'http://host.docker.internal:11434']
+          .filter(Boolean) as string[]
+      )
+    );
+    const models = Array.from(
+      new Set([configuredModel || 'llama3.2:3b', 'llama3.2:3b'])
+    );
     const prompt = buildPrompt(body);
+    const attemptErrors: string[] = [];
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    for (const model of models) {
+      for (const baseUrl of baseUrls) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
 
-    const ollamaRes = await fetch(`${ollamaBaseUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: ollamaModel,
-        prompt,
-        stream: false,
-        options: {
-          temperature: 0.2,
-        },
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
+        try {
+          const ollamaRes = await fetch(`${baseUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model,
+              prompt,
+              stream: false,
+              options: {
+                temperature: 0.2,
+              },
+            }),
+            signal: controller.signal,
+          });
 
-    if (!ollamaRes.ok) {
-      const errorText = await ollamaRes.text().catch(() => '');
-      return NextResponse.json(
-        {
-          error: 'Ollama request failed',
-          details: errorText || `HTTP ${ollamaRes.status}`,
-        },
-        { status: 502 }
-      );
+          if (!ollamaRes.ok) {
+            const errorText = await ollamaRes.text().catch(() => '');
+            const detail = `${baseUrl} [${model}] -> ${errorText || `HTTP ${ollamaRes.status}`}`;
+            attemptErrors.push(detail);
+            continue;
+          }
+
+          const data = (await ollamaRes.json()) as { response?: string };
+          const explanation = data?.response?.trim();
+          if (!explanation) {
+            attemptErrors.push(`${baseUrl} [${model}] -> Empty response`);
+            continue;
+          }
+
+          return NextResponse.json({ explanation, model, baseUrl });
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error || 'unknown error');
+          attemptErrors.push(`${baseUrl} [${model}] -> ${message}`);
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
     }
 
-    const data = (await ollamaRes.json()) as { response?: string };
-    const explanation = data?.response?.trim();
-    if (!explanation) {
-      return NextResponse.json({ error: 'Empty AI response' }, { status: 502 });
-    }
-
-    return NextResponse.json({ explanation });
+    return NextResponse.json(
+      {
+        error: 'Ollama request failed',
+        details: attemptErrors.join(' | '),
+        hint:
+          'Start Ollama and set OLLAMA_BASE_URL. If Next runs in WSL, set OLLAMA_BASE_URL to the Windows host IP (nameserver from /etc/resolv.conf).',
+      },
+      { status: 502 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error || '');
     const timeoutLike = /aborted|abort|timed out/i.test(message);
