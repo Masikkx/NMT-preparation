@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
+import { readFile } from 'fs/promises';
 
 export const runtime = 'nodejs';
 
@@ -36,6 +37,17 @@ const buildPrompt = (payload: ExplainPayload) => {
   ].join('\n');
 };
 
+const getWslHostBaseUrls = async (): Promise<string[]> => {
+  try {
+    const content = await readFile('/etc/resolv.conf', 'utf8');
+    const match = content.match(/^nameserver\s+([0-9.]+)$/m);
+    if (!match?.[1]) return [];
+    return [`http://${match[1]}:11434`];
+  } catch {
+    return [];
+  }
+};
+
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -50,9 +62,16 @@ export async function POST(request: NextRequest) {
 
     const configuredBaseUrl = process.env.OLLAMA_BASE_URL?.trim();
     const configuredModel = process.env.OLLAMA_MODEL?.trim();
+    const wslBaseUrls = await getWslHostBaseUrls();
     const baseUrls = Array.from(
       new Set(
-        [configuredBaseUrl, 'http://127.0.0.1:11434', 'http://localhost:11434', 'http://host.docker.internal:11434']
+        [
+          configuredBaseUrl,
+          'http://127.0.0.1:11434',
+          'http://localhost:11434',
+          'http://host.docker.internal:11434',
+          ...wslBaseUrls,
+        ]
           .filter(Boolean) as string[]
       )
     );
