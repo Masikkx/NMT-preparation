@@ -63,11 +63,12 @@ export default function TestPage() {
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [viewMode, setViewMode] = useState<'paged' | 'scroll'>('paged');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [answerSetupMode, setAnswerSetupMode] = useState(false);
   const [editQuestionId, setEditQuestionId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editOptions, setEditOptions] = useState<string[]>([]);
-  const [editCorrectSingle, setEditCorrectSingle] = useState(0);
+  const [editCorrectSingle, setEditCorrectSingle] = useState<number | null>(null);
   const [editCorrectWritten, setEditCorrectWritten] = useState('');
   const [editCorrectMatching, setEditCorrectMatching] = useState<string[]>([]);
   const [editCorrectSelectThree, setEditCorrectSelectThree] = useState<string[]>([]);
@@ -560,7 +561,7 @@ export default function TestPage() {
     setEditText(q.content || '');
     setEditImageUrl(q.imageUrl || '');
     setEditOptions(options.length > 0 ? options : ['', '', '', '']);
-    setEditCorrectSingle(correctIndex >= 0 ? correctIndex : 0);
+    setEditCorrectSingle(correctIndex >= 0 ? correctIndex : null);
     setEditCorrectWritten(correctText);
     setEditCorrectMatching(matchingPairs.length > 0 ? matchingPairs : ['', '', '', '']);
     setEditCorrectSelectThree(selectThree.length > 0 ? selectThree : ['', '', '']);
@@ -603,7 +604,7 @@ export default function TestPage() {
         text: q.content,
         imageUrl: q.imageUrl || '',
         options,
-        correctAnswer: correctIdx >= 0 ? correctIdx : 0,
+        correctAnswer: correctIdx >= 0 ? correctIdx : undefined,
       };
     });
   };
@@ -657,7 +658,7 @@ export default function TestPage() {
             ...ensureBase(idx),
             content: opt,
             order: idx,
-            isCorrect: idx === editCorrectSingle,
+            isCorrect: editCorrectSingle !== null && idx === editCorrectSingle,
           }));
         })();
 
@@ -1325,10 +1326,10 @@ export default function TestPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => checkAnswerForQuestion(q)}
-            disabled={getCheckDisabled(q)}
+            disabled={answerSetupMode || getCheckDisabled(q)}
             className="px-4 sm:px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition text-sm sm:text-base"
           >
-            {t('test.checkAnswer')}
+            {answerSetupMode ? 'Перевірка вимкнена в режимі ключа' : t('test.checkAnswer')}
           </button>
           {viewMode === 'paged' && (
             <>
@@ -1736,6 +1737,15 @@ export default function TestPage() {
                           </button>
                         ))}
                       </div>
+                      {editCorrectSingle !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setEditCorrectSingle(null)}
+                          className="mt-2 px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          Очистити правильну відповідь
+                        </button>
+                      )}
                     </div>
                   )}
                   {editTarget.type === 'select_three' && (
@@ -1821,6 +1831,19 @@ export default function TestPage() {
         <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base">
           {t('test.question')} {currentQuestionIndex + 1} {t('test.of')} {test.questions.length}
         </p>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setAnswerSetupMode((prev) => !prev)}
+            className={`mt-2 px-3 py-1.5 rounded-full border text-xs font-semibold ${
+              answerSetupMode
+                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700'
+                : 'bg-slate-100 border-slate-300 dark:bg-slate-800 dark:border-slate-600'
+            }`}
+          >
+            {answerSetupMode ? 'Режим проставлення відповідей: увімкнено' : 'Режим проставлення відповідей'}
+          </button>
+        )}
         {mode === 'fix' && (
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t('test.fixMode')} {fixLeft ?? test.questions.length}

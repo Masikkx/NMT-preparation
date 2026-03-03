@@ -43,7 +43,7 @@ export default function CreateTestPage() {
     type: 'single_choice',
     text: '',
     options: ['', '', '', ''],
-    correctAnswer: 0,
+    correctAnswer: undefined,
     imageUrl: '',
   });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -359,8 +359,9 @@ export default function CreateTestPage() {
       const options = inline.hasInline
         ? inline.options.map((_, idx) => letters[idx] || String(idx + 1))
         : letters.slice(0, 4);
-      let correctAnswer = typeof q.correctAnswer === 'number' ? q.correctAnswer : 0;
-      if (correctAnswer >= options.length) correctAnswer = 0;
+      let correctAnswer =
+        typeof q.correctAnswer === 'number' && q.correctAnswer >= 0 ? q.correctAnswer : undefined;
+      if (correctAnswer !== undefined && correctAnswer >= options.length) correctAnswer = undefined;
       return { ...q, text: normalizedText, imageUrl, options, correctAnswer };
     }
     if (q.type === 'matching') {
@@ -409,7 +410,7 @@ export default function CreateTestPage() {
       type: 'single_choice',
       text: '',
       options: ['', '', '', ''],
-      correctAnswer: 0,
+      correctAnswer: undefined,
       imageUrl: '',
     });
   };
@@ -422,7 +423,7 @@ export default function CreateTestPage() {
         type: 'single_choice',
         text: '',
         options: ['', '', '', ''],
-        correctAnswer: 0,
+        correctAnswer: undefined,
         imageUrl: '',
       });
     }
@@ -438,7 +439,7 @@ export default function CreateTestPage() {
       type: q.type,
       text: q.text,
       options: paddedSelectThree ? [...paddedSelectThree] : ['', '', '', ''],
-      correctAnswer: q.correctAnswer ?? (q.type === 'single_choice' ? 0 : ''),
+      correctAnswer: q.correctAnswer ?? (q.type === 'single_choice' ? undefined : ''),
       imageUrl: q.imageUrl || '',
     });
     setInputMode('manual');
@@ -450,7 +451,7 @@ export default function CreateTestPage() {
       type: 'single_choice',
       text: '',
       options: ['', '', '', ''],
-      correctAnswer: 0,
+      correctAnswer: undefined,
       imageUrl: '',
     });
   };
@@ -827,7 +828,7 @@ export default function CreateTestPage() {
         /на\s+якому\s+рисунку\s+зображена/i.test(qb.text);
 
       let type: Question['type'] = 'single_choice';
-      let correctAnswer: Question['correctAnswer'] = 0;
+      let correctAnswer: Question['correctAnswer'] = undefined;
 
       const hasMatchingHint = /Установіть\s+відповідність/i.test(qb.text);
       const hasSequenceHint = /Установіть\s+послідовність/i.test(qb.text);
@@ -853,14 +854,14 @@ export default function CreateTestPage() {
       } else if (options.length >= 4 && !suppressOptions) {
         type = 'single_choice';
         const idx = letterOrder.indexOf(answerLetters[0]);
-        correctAnswer = idx >= 0 ? idx : 0;
+        correctAnswer = idx >= 0 ? idx : undefined;
         if (!ans) {
           warnings[listIndex] = t('adminCreateTest.bulkWarnNoAnswer');
         }
       } else if (options.length === 0) {
         // no options found (likely image-based). Create 4 empty options.
         type = 'single_choice';
-        correctAnswer = 0;
+        correctAnswer = undefined;
         warnings[listIndex] = t('adminCreateTest.bulkWarnNoOptions');
       }
       if (sequenceHint && !isSequence && answerLetters.length > 1) {
@@ -1907,6 +1908,15 @@ export default function CreateTestPage() {
                     </div>
                   );
                 })()}
+                {currentQuestion.correctAnswer !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: undefined })}
+                    className="mb-2 text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    Очистити правильну відповідь
+                  </button>
+                )}
                 <p className="text-xs text-slate-500">
                   Вставте варіанти відповіді в текст питання (рядками А., Б., В., Г.), нижче оберіть правильну літеру.
                 </p>
@@ -2575,6 +2585,15 @@ export default function CreateTestPage() {
                             </div>
                           );
                         })()}
+                        {currentQuestion.correctAnswer !== undefined && (
+                          <button
+                            type="button"
+                            onClick={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: undefined })}
+                            className="mb-2 text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                          >
+                            Очистити правильну відповідь
+                          </button>
+                        )}
                         <p className="text-xs text-slate-500">
                           Вставте варіанти відповіді в текст питання (рядками А., Б., В., Г.), нижче оберіть правильну літеру.
                         </p>

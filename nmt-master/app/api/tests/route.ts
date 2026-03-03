@@ -202,14 +202,15 @@ export async function POST(request: NextRequest) {
               const mapping = Array.isArray(q.correctAnswer) ? q.correctAnswer : [];
               const rowCount = mapping.length >= 3 ? mapping.length : 4;
               for (let i = 0; i < rowCount; i++) {
+                const pairValue = mapping[i] ? String(mapping[i]) : null;
                 await prisma.answer.create({
                   data: {
                     questionId: createdQ.id,
                     type: 'matching',
                     content: String(i + 1),
-                    isCorrect: true,
+                    isCorrect: !!pairValue,
                     order: i,
-                    matchingPair: mapping[i] ? String(mapping[i]) : null,
+                    matchingPair: pairValue,
                   },
                 });
               }
@@ -232,7 +233,13 @@ export async function POST(request: NextRequest) {
                 const opt = q.options[i] ?? '';
                 let isCorrect = false;
                 if (q.type === 'single_choice') {
-                  isCorrect = Number(q.correctAnswer) === i;
+                  const singleCorrectIndex =
+                    typeof q.correctAnswer === 'number'
+                      ? q.correctAnswer
+                      : typeof q.correctAnswer === 'string' && q.correctAnswer.trim() !== ''
+                      ? Number(q.correctAnswer)
+                      : NaN;
+                  isCorrect = Number.isInteger(singleCorrectIndex) && singleCorrectIndex === i;
                 } else if (q.type === 'multiple_answers') {
                   if (Array.isArray(q.correctAnswer)) {
                     isCorrect = q.correctAnswer.includes(i) || q.correctAnswer.includes(String(i));
