@@ -32,6 +32,9 @@ export default function ResultsPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<any>(null);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [explainLoading, setExplainLoading] = useState<Record<string, boolean>>({});
+  const [explainError, setExplainError] = useState<Record<string, string>>({});
 
   const normalizeAutoMath = (text: string) => {
     const lines = text.split('\n');
@@ -158,6 +161,45 @@ export default function ResultsPage() {
         setDetail(data);
       }
     } catch {}
+  };
+
+  const requestExplanation = async (payload: {
+    questionId: string;
+    subject?: string;
+    question: string;
+    options: string[];
+    userAnswer: string;
+    correctAnswer: string;
+  }) => {
+    setExplainError((prev) => ({ ...prev, [payload.questionId]: '' }));
+    setExplainLoading((prev) => ({ ...prev, [payload.questionId]: true }));
+    try {
+      const res = await fetch('/api/ai/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: payload.subject,
+          question: payload.question,
+          options: payload.options,
+          userAnswer: payload.userAnswer,
+          correctAnswer: payload.correctAnswer,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.details || data?.error || 'Не вдалося отримати пояснення');
+      }
+      const text = String(data?.explanation || '').trim();
+      if (!text) {
+        throw new Error('AI не повернув пояснення');
+      }
+      setExplanations((prev) => ({ ...prev, [payload.questionId]: text }));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Не вдалося отримати пояснення';
+      setExplainError((prev) => ({ ...prev, [payload.questionId]: message }));
+    } finally {
+      setExplainLoading((prev) => ({ ...prev, [payload.questionId]: false }));
+    }
   };
 
 
@@ -406,6 +448,44 @@ export default function ResultsPage() {
                       )}
                     </span>
                   </div>
+                  {status !== 'correct' && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          requestExplanation({
+                            questionId: q.id,
+                            subject: detail?.attempt?.test?.subject?.name,
+                            question: q.content || '',
+                            options: q.answers
+                              .slice()
+                              .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+                              .map((a: any) => String(a.content || ''))
+                              .filter(Boolean),
+                            userAnswer: userAnswerDisplay,
+                            correctAnswer:
+                              q.type === 'matching'
+                                ? correctMatching.join(', ')
+                                : q.type === 'select_three'
+                                ? correctSelectThree.join(', ')
+                                : correctTexts.join(', '),
+                          })
+                        }
+                        disabled={!!explainLoading[q.id]}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-60"
+                      >
+                        {explainLoading[q.id] ? 'Генерую пояснення...' : 'Поясни мою помилку'}
+                      </button>
+                      {explainError[q.id] && (
+                        <p className="text-xs text-red-600 mt-2">{explainError[q.id]}</p>
+                      )}
+                      {explanations[q.id] && (
+                        <div className="mt-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm whitespace-pre-line">
+                          {explanations[q.id]}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 </div>
               );
