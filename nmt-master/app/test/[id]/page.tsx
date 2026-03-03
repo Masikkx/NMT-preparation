@@ -31,6 +31,11 @@ interface Test {
   questions: Question[];
   estimatedTime: number;
   type?: string;
+  description?: string | null;
+  historyTopicCode?: string | null;
+  mathTrack?: string | null;
+  image?: string | null;
+  isPublished?: boolean;
   subject?: { slug: string; name?: string } | null;
 }
 
@@ -73,6 +78,9 @@ export default function TestPage() {
   const [editCorrectMatching, setEditCorrectMatching] = useState<string[]>([]);
   const [editCorrectSelectThree, setEditCorrectSelectThree] = useState<string[]>([]);
   const [editSaveError, setEditSaveError] = useState<string>('');
+  const [answerKeyDirty, setAnswerKeyDirty] = useState(false);
+  const [answerKeySaving, setAnswerKeySaving] = useState(false);
+  const [answerKeyError, setAnswerKeyError] = useState('');
   const editTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -354,6 +362,25 @@ export default function TestPage() {
     }));
   };
 
+  const updateQuestionKey = (
+    questionId: string,
+    updater: (answers: Answer[]) => Answer[]
+  ) => {
+    setTest((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        questions: prev.questions.map((question) =>
+          question.id === questionId
+            ? { ...question, answers: updater([...question.answers]) }
+            : question
+        ),
+      };
+    });
+    setAnswerKeyDirty(true);
+    setAnswerKeyError('');
+  };
+
   const checkAnswerForQuestion = (q: Question) => {
     const userAnswer = answers[q.id];
     const correctAnswerIds = q.answers.filter((a) => a.isCorrect).map((a) => a.id);
@@ -609,6 +636,59 @@ export default function TestPage() {
     });
   };
 
+  const buildTestUpdatePayload = (nextTest: Test) => ({
+    title: nextTest.title,
+    description: nextTest.description ?? '',
+    type: nextTest.type,
+    historyTopicCode: nextTest.historyTopicCode ?? null,
+    mathTrack: nextTest.mathTrack ?? null,
+    image: nextTest.image ?? null,
+    estimatedTime: nextTest.estimatedTime,
+    isPublished: typeof nextTest.isPublished === 'boolean' ? nextTest.isPublished : true,
+    questions: buildEditableQuestionsPayload(nextTest),
+  });
+
+  const persistEditedTest = async (nextTest: Test) => {
+    let res = await fetch(`/api/tests/${testId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildTestUpdatePayload(nextTest)),
+    });
+    if (!res.ok) {
+      res = await fetch(`/api/tests/${testId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildTestUpdatePayload(nextTest)),
+      });
+    }
+    if (!res.ok) {
+      let msg = '';
+      try {
+        const data = await res.json();
+        msg = data?.details || data?.error || '';
+      } catch {
+        msg = await res.text().catch(() => '');
+      }
+      throw new Error(msg || `Save failed (${res.status})`);
+    }
+  };
+
+  const saveAllAnswerKey = async () => {
+    if (!test) return;
+    setAnswerKeyError('');
+    setAnswerKeySaving(true);
+    try {
+      await persistEditedTest(test);
+      setAnswerKeyDirty(false);
+      await fetchTest();
+    } catch (error: any) {
+      const msg = String(error?.message || error || '').trim();
+      setAnswerKeyError(msg ? `Помилка збереження ключа: ${msg}` : 'Не вдалося зберегти ключ відповідей.');
+    } finally {
+      setAnswerKeySaving(false);
+    }
+  };
+
   const saveEditedQuestion = async (forceReload = false) => {
     if (!test || !editQuestionId) return;
     setEditSaveError('');
@@ -671,42 +751,15 @@ export default function TestPage() {
       }),
     };
 
-    const payload = {
-      title: nextTest.title,
-      description: '',
-      type: nextTest.type,
-      historyTopicCode: null,
-      mathTrack: null,
-      image: null,
-      estimatedTime: nextTest.estimatedTime,
-      isPublished: true,
-      questions: buildEditableQuestionsPayload(nextTest),
-    };
+    if (answerSetupMode) {
+      setTest(nextTest);
+      setShowEditModal(false);
+      setAnswerKeyDirty(true);
+      return;
+    }
 
     try {
-      let res = await fetch(`/api/tests/${testId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        // retry once
-        res = await fetch(`/api/tests/${testId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
-      if (!res.ok) {
-        let msg = '';
-        try {
-          const data = await res.json();
-          msg = data?.details || data?.error || '';
-        } catch {
-          msg = await res.text().catch(() => '');
-        }
-        throw new Error(msg || `Save failed (${res.status})`);
-      }
+      await persistEditedTest(nextTest);
       setTest(nextTest);
       setShowEditModal(false);
       if (forceReload) {
@@ -1033,7 +1086,7 @@ export default function TestPage() {
         data-question-index={idx}
         className="relative bg-white dark:bg-slate-800 rounded-lg p-4 sm:p-6 shadow-md border border-slate-200 dark:border-slate-700 mb-4 sm:mb-6"
       >
-        {isAdmin && (
+        {isAdmin && !answerSetupMode && (
           <button
             type="button"
             onClick={() => openEditForQuestion(q)}
@@ -1123,14 +1176,20 @@ export default function TestPage() {
                   .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                   .map((answer, aIdx) => {
                     const isMulti = q.type === 'multiple_answers';
-                    const selected = isMulti
+                    const selected = answerSetupMode
+                      ? !!answer.isCorrect
+                      : isMulti
                       ? Array.isArray(answers[q.id]) &&
                         (answers[q.id] as string[]).includes(answer.id)
                       : answers[q.id] === answer.id;
                     const isChecked = !!checked[q.id];
                     const isCorrect = isChecked && !!answer.isCorrect;
                     const isWrong = isChecked && selected && !answer.isCorrect;
-                    const badgeClass = isCorrect
+                    const badgeClass = answerSetupMode
+                      ? selected
+                        ? 'border-blue-600 text-blue-700 bg-blue-50 dark:bg-blue-900/30'
+                        : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200'
+                      : isCorrect
                       ? 'border-green-600 text-green-800 bg-green-100 dark:bg-green-900/50'
                       : isWrong
                       ? 'border-red-500 text-red-700 bg-red-50 dark:bg-red-900/30'
@@ -1142,6 +1201,20 @@ export default function TestPage() {
                         key={answer.id}
                         type="button"
                         onClick={() => {
+                          if (answerSetupMode) {
+                            if (isMulti) {
+                              updateQuestionKey(q.id, (qAnswers) =>
+                                qAnswers.map((a) =>
+                                  a.id === answer.id ? { ...a, isCorrect: !a.isCorrect } : a
+                                )
+                              );
+                            } else {
+                              updateQuestionKey(q.id, (qAnswers) =>
+                                qAnswers.map((a) => ({ ...a, isCorrect: a.id === answer.id }))
+                              );
+                            }
+                            return;
+                          }
                           if (isMulti) {
                             const current = Array.isArray(answers[q.id])
                               ? (answers[q.id] as string[])
@@ -1154,7 +1227,7 @@ export default function TestPage() {
                             handleAnswerChange(q.id, answer.id);
                           }
                         }}
-                        disabled={!!checked[q.id]}
+                        disabled={answerSetupMode ? false : !!checked[q.id]}
                         className={`h-9 w-9 sm:h-10 sm:w-10 rounded-lg border-2 font-bold transition ${badgeClass}`}
                         aria-pressed={selected}
                       >
@@ -1170,11 +1243,28 @@ export default function TestPage() {
             <input
               type="text"
               placeholder={t('test.enterAnswer')}
-              value={answers[q.id] || ''}
-              onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-              disabled={!!checked[q.id]}
+              value={answerSetupMode ? (q.answers.find((a) => a.isCorrect)?.content ?? '') : (answers[q.id] || '')}
+              onChange={(e) => {
+                if (answerSetupMode) {
+                  const value = e.target.value;
+                  updateQuestionKey(q.id, (qAnswers) => {
+                    if (qAnswers.length === 0) {
+                      return [{ id: `tmp-${q.id}-written`, content: value, isCorrect: true }];
+                    }
+                    const next = [...qAnswers];
+                    next[0] = { ...next[0], content: value, isCorrect: true };
+                    for (let i = 1; i < next.length; i++) next[i] = { ...next[i], isCorrect: false };
+                    return next;
+                  });
+                  return;
+                }
+                handleAnswerChange(q.id, e.target.value);
+              }}
+              disabled={answerSetupMode ? false : !!checked[q.id]}
               className={`w-full px-4 py-2 sm:py-3 border-2 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                checked[q.id]
+                answerSetupMode
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : checked[q.id]
                   ? statusMap[q.id] === 'correct'
                     ? 'border-green-600 bg-green-100 dark:bg-green-900/50'
                     : statusMap[q.id] === 'partial'
@@ -1197,6 +1287,40 @@ export default function TestPage() {
                     </div>
                   ))}
               </div>
+              {answerSetupMode ? (
+                <div className="flex flex-wrap gap-2">
+                  {q.answers
+                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                    .map((answer, idx) => {
+                      const selected = !!answer.isCorrect;
+                      return (
+                        <button
+                          key={`key-select3-${answer.id}`}
+                          type="button"
+                          onClick={() =>
+                            updateQuestionKey(q.id, (qAnswers) => {
+                              const sorted = [...qAnswers].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                              const currentSelected = sorted.filter((a) => a.isCorrect).length;
+                              return sorted.map((a, i) => {
+                                if (a.id !== answer.id) return a;
+                                if (a.isCorrect) return { ...a, isCorrect: false };
+                                if (currentSelected >= 3) return a;
+                                return { ...a, isCorrect: true };
+                              }).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                            })
+                          }
+                          className={`h-9 w-9 rounded-lg border-2 font-bold transition ${
+                            selected
+                              ? 'border-blue-600 bg-blue-50 text-blue-700'
+                              : 'border-slate-300 dark:border-slate-600'
+                          }`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : (
               <div className="grid grid-cols-3 gap-3">
                 {[0, 1, 2].map((sIdx) => (
                   (() => {
@@ -1234,6 +1358,7 @@ export default function TestPage() {
                   })()
                 ))}
               </div>
+              )}
             </div>
           )}
 
@@ -1264,7 +1389,9 @@ export default function TestPage() {
                           {row + 1}
                         </div>
                         {['А', 'Б', 'В', 'Г', 'Д'].map((col) => {
-                          const selected = (answers[q.id] || [])[row];
+                          const selected = answerSetupMode
+                            ? correctMatching[row]
+                            : (answers[q.id] || [])[row];
                           const correct = correctMatching[row];
                           const isChecked = !!checked[q.id];
                           const isSelected = selected === col;
@@ -1286,11 +1413,23 @@ export default function TestPage() {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (answerSetupMode) {
+                                    updateQuestionKey(q.id, (qAnswers) =>
+                                      qAnswers
+                                        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                                        .map((a, idx) =>
+                                          idx === row
+                                            ? { ...a, matchingPair: col, isCorrect: true }
+                                            : a
+                                        )
+                                    );
+                                    return;
+                                  }
                                   const current = [...(answers[q.id] || [])];
                                   current[row] = col;
                                   handleAnswerChange(q.id, current);
                                 }}
-                                disabled={!!checked[q.id]}
+                                disabled={answerSetupMode ? false : !!checked[q.id]}
                                 className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg border-2 font-bold transition flex items-center justify-center ${
                                   isSelected
                                     ? 'border-blue-600 bg-blue-50 text-blue-700'
@@ -1832,17 +1971,27 @@ export default function TestPage() {
           {t('test.question')} {currentQuestionIndex + 1} {t('test.of')} {test.questions.length}
         </p>
         {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setAnswerSetupMode((prev) => !prev)}
-            className={`mt-2 px-3 py-1.5 rounded-full border text-xs font-semibold ${
-              answerSetupMode
-                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700'
-                : 'bg-slate-100 border-slate-300 dark:bg-slate-800 dark:border-slate-600'
-            }`}
-          >
-            {answerSetupMode ? 'Режим проставлення відповідей: увімкнено' : 'Режим проставлення відповідей'}
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAnswerSetupMode((prev) => !prev)}
+              className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${
+                answerSetupMode
+                  ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700'
+                  : 'bg-slate-100 border-slate-300 dark:bg-slate-800 dark:border-slate-600'
+              }`}
+            >
+              {answerSetupMode ? 'Режим проставлення відповідей: увімкнено' : 'Режим проставлення відповідей'}
+            </button>
+            {answerSetupMode && answerKeyDirty && (
+              <span className="text-xs text-amber-700 dark:text-amber-300">
+                Є незбережені зміни ключа
+              </span>
+            )}
+          </div>
+        )}
+        {answerKeyError && (
+          <p className="text-xs text-red-600 mt-2">{answerKeyError}</p>
         )}
         {mode === 'fix' && (
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -1857,7 +2006,7 @@ export default function TestPage() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8">
+      <div className={`max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8 ${isAdmin && answerSetupMode ? 'pb-28' : ''}`}>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-3">
@@ -2126,6 +2275,27 @@ export default function TestPage() {
           </div>
         </div>
       </div>
+      {isAdmin && answerSetupMode && (
+        <div className="fixed bottom-4 left-0 right-0 z-40 px-3 sm:px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur p-3 shadow-lg">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                  {answerKeyDirty ? 'Є незбережені зміни ключа' : 'Ключ відповідей актуальний'}
+                </div>
+                <button
+                  type="button"
+                  onClick={saveAllAnswerKey}
+                  disabled={answerKeySaving || !answerKeyDirty}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold"
+                >
+                  {answerKeySaving ? 'Збереження...' : 'Зберегти ключ тесту'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
